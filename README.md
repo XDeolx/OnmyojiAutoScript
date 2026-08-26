@@ -27,6 +27,8 @@
 
 #### 主仓库: [https://github.com/runhey/OnmyojiAutoScript](https://github.com/runhey/OnmyojiAutoScript)
 
+#### [`testoyj` 更新日志](./TESTOYJ_CHANGELOG.md) | [配套 OASX 版本](https://github.com/zHydeol/OASX/releases)
+
 </div>
 
 阴阳师，作为一个手游，已经进入了生命周期的晚期。从现在到关服的这段时间里，请减少花费在阴阳师上的时间，把一切都交给 OAS。
