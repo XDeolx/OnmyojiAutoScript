@@ -1,7 +1,7 @@
 # This Python file uses the following encoding: utf-8
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
 
 from module.config.utils import convert_to_underscore, read_file, write_file
@@ -34,14 +34,29 @@ class WeeklySchedule:
                 continue
         return {
             'enabled': bool(raw.get('enabled', True)),
+            'catch_up_missed': bool(raw.get('catch_up_missed', False)),
             'entries': clean_entries,
+            'last_applied_date': str(raw.get('last_applied_date', '')),
+            'last_applied_at': str(raw.get('last_applied_at', '')),
         }
 
-    def save(self, enabled: bool, entries: list[dict]) -> dict:
+    def save(self, enabled: bool, entries: list[dict], catch_up_missed: bool | None = None) -> dict:
+        previous = self.load()
+        was_enabled = previous['enabled']
         data = {
             'enabled': bool(enabled),
+            'catch_up_missed': (
+                previous['catch_up_missed']
+                if catch_up_missed is None
+                else bool(catch_up_missed)
+            ),
             'entries': self.normalize_entries(entries),
+            'last_applied_date': previous['last_applied_date'],
+            'last_applied_at': previous['last_applied_at'],
         }
+        if enabled and not was_enabled:
+            data['last_applied_date'] = ''
+            data['last_applied_at'] = ''
         write_file(str(self.path), data)
         return data
 
@@ -99,6 +114,47 @@ class WeeklySchedule:
             candidates.append(candidate)
         return min(candidates).replace(microsecond=0)
 
+    @staticmethod
+    def current_week_datetime(entry: dict, reference: datetime | None = None) -> datetime:
+        reference = (reference or datetime.now()).replace(microsecond=0)
+        week_start = reference.date() - timedelta(days=reference.isoweekday() - 1)
+        run_date = week_start + timedelta(days=int(entry['weekday']) - 1)
+        run_time = datetime.strptime(entry['time'], '%H:%M').time()
+        return datetime.combine(run_date, run_time)
+
+    def targets_for_date(self, target_date: date) -> dict[str, datetime]:
+        data = self.load()
+        if not data['enabled']:
+            return {}
+        targets = {}
+        for entry in data['entries']:
+            if entry['weekday'] != target_date.isoweekday():
+                continue
+            task_key = convert_to_underscore(entry['task'])
+            run_time = datetime.strptime(entry['time'], '%H:%M').time()
+            target = datetime.combine(target_date, run_time)
+            current = targets.get(task_key)
+            if current is None or target < current:
+                targets[task_key] = target
+        return targets
+
+    def needs_daily_apply(self, target_date: date) -> bool:
+        data = self.load()
+        return data['enabled'] and data['last_applied_date'] != target_date.isoformat()
+
+    def mark_applied(self, applied_at: datetime | None = None) -> None:
+        applied_at = (applied_at or datetime.now()).replace(microsecond=0)
+        data = self.load()
+        data['last_applied_date'] = applied_at.date().isoformat()
+        data['last_applied_at'] = str(applied_at)
+        write_file(str(self.path), data)
+
+    def next_daily_refresh(self, after: datetime | None = None) -> datetime | None:
+        if not self.load()['enabled']:
+            return None
+        after = (after or datetime.now()).replace(microsecond=0)
+        return datetime.combine(after.date() + timedelta(days=1), time.min)
+
     def planned_tasks(self) -> set[str]:
         data = self.load()
         if not data['enabled']:
@@ -110,7 +166,11 @@ class WeeklySchedule:
         source = WeeklySchedule(source_name)
         if source.path.exists():
             data = source.load()
-            WeeklySchedule(target_name).save(data['enabled'], data['entries'])
+            WeeklySchedule(target_name).save(
+                data['enabled'],
+                data['entries'],
+                data['catch_up_missed'],
+            )
 
     @staticmethod
     def rename(old_name: str, new_name: str) -> None:

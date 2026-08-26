@@ -9,7 +9,7 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 from fastapi.responses import Response, StreamingResponse
 from fastapi import WebSocket, WebSocketDisconnect
-from datetime import datetime
+from datetime import datetime, timedelta
 from module.config.utils import convert_to_underscore
 from module.config.config_model import ConfigModel
 from module.config.weekly_schedule import WeeklySchedule
@@ -42,6 +42,7 @@ class WeeklyScheduleEntryRequest(BaseModel):
 
 class WeeklyScheduleRequest(BaseModel):
     enabled: bool = True
+    catch_up_missed: bool = False
     entries: list[WeeklyScheduleEntryRequest] = Field(default_factory=list)
 
 
@@ -69,17 +70,26 @@ def _weekly_schedule_response(script_name: str):
     schedule = WeeklySchedule(script_name)
     data = schedule.load()
     tasks = _weekly_schedule_tasks(config)
+    now = datetime.now().replace(microsecond=0)
+    week_start = now.date() - timedelta(days=now.isoweekday() - 1)
     planned_keys = {
         convert_to_underscore(entry['task'])
         for entry in data['entries']
     }
-    next_runs = {}
-    for task in tasks:
-        next_run = schedule.next_run(task['name'])
-        if next_run is not None:
-            next_runs[task['name']] = str(next_run)
+    next_runs = {
+        task['name']: task['next_run']
+        for task in tasks
+        if task['next_run']
+    }
     return {
         **data,
+        'entries': [
+            {
+                **entry,
+                'scheduled_at': str(schedule.current_week_datetime(entry, now)),
+            }
+            for entry in data['entries']
+        ],
         'tasks': tasks,
         'planned_tasks': [
             task['name'] for task in tasks
@@ -90,6 +100,9 @@ def _weekly_schedule_response(script_name: str):
             if convert_to_underscore(task['name']) not in planned_keys
         ],
         'next_runs': next_runs,
+        'server_now': str(now),
+        'current_week_start': str(week_start),
+        'today_weekday': now.isoweekday(),
     }
 
 
@@ -359,7 +372,11 @@ async def put_weekly_schedule(script_name: str, payload: WeeklyScheduleRequest):
             'time': item.time,
         })
     try:
-        WeeklySchedule(script_name).save(payload.enabled, entries)
+        WeeklySchedule(script_name).save(
+            payload.enabled,
+            entries,
+            payload.catch_up_missed,
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     return _weekly_schedule_response(script_name)
@@ -370,26 +387,12 @@ async def apply_weekly_schedule(script_name: str):
     if script_name not in mm.all_script_files():
         raise HTTPException(status_code=404, detail='Config not found')
     config = mm.config_cache(script_name)
-    weekly_schedule = WeeklySchedule(script_name)
-    data = weekly_schedule.load()
-    applied = []
-    if data['enabled']:
-        for task_key in weekly_schedule.planned_tasks():
-            task_object = getattr(config.model, task_key, None)
-            scheduler = getattr(task_object, 'scheduler', None)
-            if scheduler is None:
-                continue
-            next_run = weekly_schedule.next_run(task_key)
-            if next_run is None:
-                continue
-            scheduler.enable = True
-            scheduler.next_run = next_run
-            applied.append(ConfigModel.type(task_key))
-        if applied:
-            config.save()
-            await _broadcast_schedule(script_name, config)
+    result = config.apply_weekly_schedule_today(force=True)
+    if result['applied']:
+        await _broadcast_schedule(script_name, config)
     response = _weekly_schedule_response(script_name)
-    response['applied_tasks'] = sorted(applied)
+    response['applied_tasks'] = sorted(result['applied'])
+    response['skipped_tasks'] = sorted(result['skipped'])
     return response
 
 @script_app.get('/{script_name}/{task}/args')
@@ -436,7 +439,7 @@ async def sync_next_run(script_name: str, task: str, target_dt: str):
         return False
     config = mm.config_cache(script_name)
     target = datetime.strptime(target_dt, '%Y-%m-%d %H:%M:%S') if target_dt else None
-    config.task_delay(task=task, success=True, target=target, weekly_override=False)
+    config.task_delay(task=task, success=True, target=target)
     script_process = mm.script_process[script_name]
     config.get_next()
     await script_process.broadcast_state({"schedule": config.get_schedule_data()})

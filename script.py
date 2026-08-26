@@ -320,7 +320,12 @@ class Script:
             if task.next_run <= now:
                 return task.command
             # 根据策略执行等待逻辑
-            decision = self.runtime.handle_wait_during_idle(task.next_run)
+            wait_until = task.next_run
+            weekly_refresh = self.config.weekly_schedule_refresh_at(now)
+            if weekly_refresh is not None and weekly_refresh < wait_until:
+                wait_until = weekly_refresh
+                logger.info(f'Wake scheduler for weekly daily sync at {wait_until}')
+            decision = self.runtime.handle_wait_during_idle(wait_until)
             if decision == ScriptRuntimeDecision.RESCHEDULE:
                 logger.info('Idle wait requested scheduler refresh, reload config and reschedule')
                 del_cached_property(self, "config")

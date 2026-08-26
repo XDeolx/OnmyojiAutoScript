@@ -175,11 +175,47 @@ class Config(ConfigState, ConfigManual, ConfigWatcher, ConfigMenu):
         """
         self.model.write_json(self.config_name, self.model.dict())
 
+    def apply_weekly_schedule_today(self, now: datetime = None, force: bool = False) -> dict:
+        now = (now or datetime.now()).replace(microsecond=0)
+        weekly_schedule = WeeklySchedule(self.config_name)
+        data = weekly_schedule.load()
+        result = {'applied': [], 'skipped': []}
+        if not data['enabled']:
+            return result
+        if not force and not weekly_schedule.needs_daily_apply(now.date()):
+            return result
+
+        for task_key, target in weekly_schedule.targets_for_date(now.date()).items():
+            task_object = getattr(self.model, task_key, None)
+            scheduler = getattr(task_object, 'scheduler', None)
+            if scheduler is None:
+                continue
+            task_name = ConfigModel.type(task_key)
+            if target < now and not data['catch_up_missed']:
+                result['skipped'].append(task_name)
+                continue
+            scheduler.enable = True
+            scheduler.next_run = target
+            result['applied'].append(task_name)
+
+        if result['applied']:
+            self.save()
+        weekly_schedule.mark_applied(now)
+        logger.info(
+            f"Weekly schedule daily sync: applied={result['applied']}, "
+            f"skipped_past={result['skipped']}"
+        )
+        return result
+
+    def weekly_schedule_refresh_at(self, now: datetime = None) -> datetime | None:
+        return WeeklySchedule(self.config_name).next_daily_refresh(now)
+
     def update_scheduler(self) -> None:
         """
         更新调度器， 设置pending_task and waiting_task
         :return:
         """
+        self.apply_weekly_schedule_today()
         pending_task = []
         waiting_task = []
         error = []
@@ -291,14 +327,12 @@ class Config(ConfigState, ConfigManual, ConfigWatcher, ConfigMenu):
             return False
 
     def task_delay(self, task: str, start_time: datetime = None,
-                   success: bool = None, server: bool = True, target: datetime = None,
-                   weekly_override: bool = True) -> None:
+                   success: bool = None, server: bool = True, target: datetime = None) -> None:
         """
         设置下次运行时间  当然这个也是可以重写的
         :param target: 可以自定义的下次运行时间
         :param server: True
         :param success: 判断是成功的还是失败的时间间隔
-        :param weekly_override: 是否允许周计划接管下次运行时间
         :param task: 任务名称，大驼峰的
         :param finish: 是完成任务后的时间为基准还是开始任务的时间为基准
         :return:
@@ -363,13 +397,6 @@ class Config(ConfigState, ConfigManual, ConfigWatcher, ConfigMenu):
                 next_run += timedelta(seconds=random_float)
             else:
                 next_run = parse_tomorrow_server(scheduler.server_update, scheduler.delay_date, random_float)
-
-        # A successful or target-based completion returns planned tasks to their
-        # next weekly slot. Failure retries keep the task's original retry delay.
-        if weekly_override and success is not False:
-            weekly_next_run = WeeklySchedule(self.config_name).next_run(task)
-            if weekly_next_run is not None:
-                next_run = weekly_next_run
 
         # 将这些连接起来，方便日志输出
         kv = dict_to_kv(
