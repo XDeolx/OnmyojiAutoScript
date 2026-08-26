@@ -6,10 +6,13 @@ import json
 from urllib.parse import quote
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from pydantic import BaseModel, Field
 from fastapi.responses import Response, StreamingResponse
 from fastapi import WebSocket, WebSocketDisconnect
 from datetime import datetime
 from module.config.utils import convert_to_underscore
+from module.config.config_model import ConfigModel
+from module.config.weekly_schedule import WeeklySchedule
 
 from module.logger import logger
 from module.server.api_logger import ApiLoggingRoute, log_ws_event
@@ -29,6 +32,74 @@ from tasks.Component.config_base import TimeDelta
 
 
 script_app = APIRouter(route_class=ApiLoggingRoute)
+
+
+class WeeklyScheduleEntryRequest(BaseModel):
+    task: str
+    weekday: int = Field(ge=1, le=7)
+    time: str
+
+
+class WeeklyScheduleRequest(BaseModel):
+    enabled: bool = True
+    entries: list[WeeklyScheduleEntryRequest] = Field(default_factory=list)
+
+
+def _weekly_schedule_tasks(config):
+    tasks = []
+    for key in config.model.dict().keys():
+        task_object = getattr(config.model, key, None)
+        scheduler = getattr(task_object, 'scheduler', None)
+        if scheduler is None:
+            continue
+        try:
+            task_name = ConfigModel.type(key)
+        except (KeyError, IndexError):
+            continue
+        tasks.append({
+            'name': task_name,
+            'enabled': bool(scheduler.enable),
+            'next_run': str(scheduler.next_run),
+        })
+    return tasks
+
+
+def _weekly_schedule_response(script_name: str):
+    config = mm.config_cache(script_name)
+    schedule = WeeklySchedule(script_name)
+    data = schedule.load()
+    tasks = _weekly_schedule_tasks(config)
+    planned_keys = {
+        convert_to_underscore(entry['task'])
+        for entry in data['entries']
+    }
+    next_runs = {}
+    for task in tasks:
+        next_run = schedule.next_run(task['name'])
+        if next_run is not None:
+            next_runs[task['name']] = str(next_run)
+    return {
+        **data,
+        'tasks': tasks,
+        'planned_tasks': [
+            task['name'] for task in tasks
+            if convert_to_underscore(task['name']) in planned_keys
+        ],
+        'unplanned_tasks': [
+            task['name'] for task in tasks
+            if convert_to_underscore(task['name']) not in planned_keys
+        ],
+        'next_runs': next_runs,
+    }
+
+
+async def _broadcast_schedule(script_name: str, config):
+    if script_name not in mm.script_process:
+        return
+    config.get_next()
+    await mm.script_process[script_name].broadcast_state({
+        'schedule': config.get_schedule_data(),
+    })
 
 
 @script_app.get('/test')
@@ -260,6 +331,67 @@ async def script_stop(script_name: str):
     mm.script_process[script_name].stop()
     return
 
+
+@script_app.get('/{script_name}/weekly_schedule')
+async def get_weekly_schedule(script_name: str):
+    if script_name not in mm.all_script_files():
+        raise HTTPException(status_code=404, detail='Config not found')
+    return _weekly_schedule_response(script_name)
+
+
+@script_app.put('/{script_name}/weekly_schedule')
+async def put_weekly_schedule(script_name: str, payload: WeeklyScheduleRequest):
+    if script_name not in mm.all_script_files():
+        raise HTTPException(status_code=404, detail='Config not found')
+    config = mm.config_cache(script_name)
+    available_tasks = {
+        convert_to_underscore(task['name']): task['name']
+        for task in _weekly_schedule_tasks(config)
+    }
+    entries = []
+    for item in payload.entries:
+        task_key = convert_to_underscore(item.task)
+        if task_key not in available_tasks:
+            raise HTTPException(status_code=400, detail=f'Unknown scheduled task: {item.task}')
+        entries.append({
+            'task': available_tasks[task_key],
+            'weekday': item.weekday,
+            'time': item.time,
+        })
+    try:
+        WeeklySchedule(script_name).save(payload.enabled, entries)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return _weekly_schedule_response(script_name)
+
+
+@script_app.post('/{script_name}/weekly_schedule/apply')
+async def apply_weekly_schedule(script_name: str):
+    if script_name not in mm.all_script_files():
+        raise HTTPException(status_code=404, detail='Config not found')
+    config = mm.config_cache(script_name)
+    weekly_schedule = WeeklySchedule(script_name)
+    data = weekly_schedule.load()
+    applied = []
+    if data['enabled']:
+        for task_key in weekly_schedule.planned_tasks():
+            task_object = getattr(config.model, task_key, None)
+            scheduler = getattr(task_object, 'scheduler', None)
+            if scheduler is None:
+                continue
+            next_run = weekly_schedule.next_run(task_key)
+            if next_run is None:
+                continue
+            scheduler.enable = True
+            scheduler.next_run = next_run
+            applied.append(ConfigModel.type(task_key))
+        if applied:
+            config.save()
+            await _broadcast_schedule(script_name, config)
+    response = _weekly_schedule_response(script_name)
+    response['applied_tasks'] = sorted(applied)
+    return response
+
 @script_app.get('/{script_name}/{task}/args')
 async def script_task(script_name: str, task: str):
     return mm.config_cache(script_name).model.script_task(task)
@@ -304,7 +436,7 @@ async def sync_next_run(script_name: str, task: str, target_dt: str):
         return False
     config = mm.config_cache(script_name)
     target = datetime.strptime(target_dt, '%Y-%m-%d %H:%M:%S') if target_dt else None
-    config.task_delay(task=task, success=True, target=target)
+    config.task_delay(task=task, success=True, target=target, weekly_override=False)
     script_process = mm.script_process[script_name]
     config.get_next()
     await script_process.broadcast_state({"schedule": config.get_schedule_data()})

@@ -10,6 +10,7 @@ from typing import Any, get_args, get_origin
 from pydantic import BaseModel, ValidationError
 
 from module.config.config_model import ConfigModel
+from module.config.weekly_schedule import WeeklySchedule
 from module.config.utils import convert_to_underscore, read_file, write_file
 from module.logger import logger
 
@@ -521,6 +522,7 @@ class ConfigManager:
             template_content = f.read()
         with open(file_path, 'w', encoding='utf-8') as f:
             f.write(template_content)
+        WeeklySchedule.copy(template, file)
         logger.info(f'copy {template_path} to {file_path}')
 
 
@@ -566,6 +568,7 @@ class ConfigManager:
             return False
         try:
             old_path.rename(new_path)
+            WeeklySchedule.rename(old_name, new_name)
             logger.info(f'rename {old_path} to {new_path}')
             return True
         except Exception as e:
@@ -586,6 +589,7 @@ class ConfigManager:
             return False
         try:
             file_path.unlink()
+            WeeklySchedule.delete(file)
             logger.info(f'delete {file_path}')
             return True
         except Exception as e:

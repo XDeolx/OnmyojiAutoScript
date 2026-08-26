@@ -1,0 +1,127 @@
+# This Python file uses the following encoding: utf-8
+from __future__ import annotations
+
+from datetime import datetime, timedelta
+from pathlib import Path
+
+from module.config.utils import convert_to_underscore, read_file, write_file
+
+
+class WeeklySchedule:
+    """Persistent weekly task schedule for one script config."""
+
+    def __init__(self, config_name: str):
+        self.config_name = config_name
+
+    @property
+    def path(self) -> Path:
+        return Path.cwd() / 'config' / 'weekly_schedule' / f'{self.config_name}.json'
+
+    def load(self) -> dict:
+        raw = read_file(str(self.path))
+        if not isinstance(raw, dict):
+            raw = {}
+        entries = raw.get('entries', [])
+        if not isinstance(entries, list):
+            entries = []
+        clean_entries = []
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            try:
+                clean_entries.extend(self.normalize_entries([entry]))
+            except (TypeError, ValueError):
+                continue
+        return {
+            'enabled': bool(raw.get('enabled', True)),
+            'entries': clean_entries,
+        }
+
+    def save(self, enabled: bool, entries: list[dict]) -> dict:
+        data = {
+            'enabled': bool(enabled),
+            'entries': self.normalize_entries(entries),
+        }
+        write_file(str(self.path), data)
+        return data
+
+    @staticmethod
+    def normalize_entries(entries: list[dict]) -> list[dict]:
+        normalized = []
+        seen = set()
+        for entry in entries:
+            task = str(entry.get('task', '')).strip()
+            weekday = int(entry.get('weekday', 0))
+            run_time = str(entry.get('time', '')).strip()
+            if not task:
+                raise ValueError('Task is required')
+            if weekday < 1 or weekday > 7:
+                raise ValueError(f'Invalid weekday for {task}: {weekday}')
+            try:
+                parsed_time = datetime.strptime(run_time, '%H:%M').time()
+            except ValueError as e:
+                raise ValueError(f'Invalid time for {task}: {run_time}') from e
+            item = {
+                'task': task,
+                'weekday': weekday,
+                'time': parsed_time.strftime('%H:%M'),
+            }
+            key = (convert_to_underscore(task), weekday, item['time'])
+            if key in seen:
+                continue
+            seen.add(key)
+            normalized.append(item)
+        return sorted(normalized, key=lambda item: (item['weekday'], item['time'], item['task']))
+
+    def entries_for(self, task: str) -> list[dict]:
+        task_key = convert_to_underscore(task)
+        data = self.load()
+        if not data['enabled']:
+            return []
+        return [
+            entry
+            for entry in data['entries']
+            if convert_to_underscore(entry.get('task', '')) == task_key
+        ]
+
+    def next_run(self, task: str, after: datetime | None = None) -> datetime | None:
+        entries = self.entries_for(task)
+        if not entries:
+            return None
+        after = (after or datetime.now()).replace(microsecond=0)
+        candidates = []
+        for entry in entries:
+            run_time = datetime.strptime(entry['time'], '%H:%M').time()
+            days_ahead = (entry['weekday'] - after.isoweekday()) % 7
+            candidate = datetime.combine(after.date() + timedelta(days=days_ahead), run_time)
+            if candidate <= after:
+                candidate += timedelta(days=7)
+            candidates.append(candidate)
+        return min(candidates).replace(microsecond=0)
+
+    def planned_tasks(self) -> set[str]:
+        data = self.load()
+        if not data['enabled']:
+            return set()
+        return {convert_to_underscore(entry.get('task', '')) for entry in data['entries']}
+
+    @staticmethod
+    def copy(source_name: str, target_name: str) -> None:
+        source = WeeklySchedule(source_name)
+        if source.path.exists():
+            data = source.load()
+            WeeklySchedule(target_name).save(data['enabled'], data['entries'])
+
+    @staticmethod
+    def rename(old_name: str, new_name: str) -> None:
+        old_path = WeeklySchedule(old_name).path
+        new_path = WeeklySchedule(new_name).path
+        if old_path.exists():
+            new_path.parent.mkdir(parents=True, exist_ok=True)
+            old_path.replace(new_path)
+
+    @staticmethod
+    def delete(config_name: str) -> None:
+        path = WeeklySchedule(config_name).path
+        if path.exists():
+            path.unlink()

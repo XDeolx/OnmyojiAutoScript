@@ -19,6 +19,7 @@ from module.config.config_menu import ConfigMenu
 from module.config.config_model import ConfigModel
 from module.config.config_state import ConfigState
 from module.config.scheduler import TaskScheduler
+from module.config.weekly_schedule import WeeklySchedule
 from module.config.utils import *
 from module.notify.notify import Notifier
 
@@ -290,12 +291,14 @@ class Config(ConfigState, ConfigManual, ConfigWatcher, ConfigMenu):
             return False
 
     def task_delay(self, task: str, start_time: datetime = None,
-                   success: bool = None, server: bool = True, target: datetime = None) -> None:
+                   success: bool = None, server: bool = True, target: datetime = None,
+                   weekly_override: bool = True) -> None:
         """
         设置下次运行时间  当然这个也是可以重写的
         :param target: 可以自定义的下次运行时间
         :param server: True
         :param success: 判断是成功的还是失败的时间间隔
+        :param weekly_override: 是否允许周计划接管下次运行时间
         :param task: 任务名称，大驼峰的
         :param finish: 是完成任务后的时间为基准还是开始任务的时间为基准
         :return:
@@ -360,6 +363,13 @@ class Config(ConfigState, ConfigManual, ConfigWatcher, ConfigMenu):
                 next_run += timedelta(seconds=random_float)
             else:
                 next_run = parse_tomorrow_server(scheduler.server_update, scheduler.delay_date, random_float)
+
+        # A successful or target-based completion returns planned tasks to their
+        # next weekly slot. Failure retries keep the task's original retry delay.
+        if weekly_override and success is not False:
+            weekly_next_run = WeeklySchedule(self.config_name).next_run(task)
+            if weekly_next_run is not None:
+                next_run = weekly_next_run
 
         # 将这些连接起来，方便日志输出
         kv = dict_to_kv(
