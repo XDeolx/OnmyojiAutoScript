@@ -116,8 +116,13 @@ def handle_adb_error(e):
     Returns:
         bool: If should retry
     """
-    text = str(e)
-    if 'not found' in text:
+    text = str(e).strip()
+    if not text:
+        # MuMu may return an empty FAIL response while ATX is restarting.
+        # Reconnecting this serial is safe and lets the normal retry loop recover.
+        logger.warning('ADB returned an empty error response, reconnect and retry')
+        return True
+    elif 'not found' in text:
         # When you call `adb disconnect <serial>`
         # Or when adb server was killed (low possibility)
         # AdbError(device '127.0.0.1:59865' not found)
@@ -155,7 +160,6 @@ def handle_adb_error(e):
         logger.error(e)
         return True
     else:
-        # AdbError()
         logger.exception(e)
         possible_reasons(
             'If you are using BlueStacks or LD player or WSA, please enable ADB in the settings of your emulator',
