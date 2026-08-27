@@ -87,18 +87,55 @@ class ScriptTask(GameUi, ReplaceShikigami, KekkaiUtilizeAssets):
         # 收体力盒子或者是经验盒子
         self.check_box_ap_or_exp(con.box_ap_enable, con.box_exp_enable, con.box_exp_waste)
 
+        # 返回庭院本来就会经过寮主页，只顺手收取当前可见的寮资金和体力。
+        self.receive_guild_assets()
         if not con.utilize_enable:
             self.set_next_run(task='KekkaiUtilize', finish=True, success=True)
         self.goto_page(page_main)
         raise TaskEnd
 
-    def receive_guild_assets(self, max_tries: int = 3):
-        """收取寮奖励 会自动前往寮界面探测, 最后会退出到庭院"""
-        for i in range(1, max_tries+1):
-            self.goto_page(page_guild)
-            ret = self.check_and_get_guild_rewards()
-            logger.info(f'第[{i}]次收取寮奖励: {ret}')
-            self.goto_page(page_main)
+    def receive_guild_assets(self) -> bool:
+        """退出结界时经过寮主页，单次顺手收取资金和体力。"""
+        self.goto_page(page_guild)
+        collected = self.collect_visible_guild_assets()
+        logger.info(f'顺手收取寮资金/体力: {collected}')
+        return collected
+
+    def _settle_guild_reward(self, allow_assets_confirm: bool = False) -> None:
+        """仅在已经点击奖励后处理确认框和奖励弹窗。"""
+        timeout = Timer(4).start()
+        while not timeout.reached():
+            self.screenshot()
+            if allow_assets_confirm and self.appear_then_click(
+                self.I_GUILD_ASSETS_RECEIVE,
+                interval=0.5,
+            ):
+                allow_assets_confirm = False
+                continue
+            if self.ui_reward_appear_click():
+                return
+
+    def collect_visible_guild_assets(self) -> bool:
+        """单次处理当前寮主页上可见的资金和体力，不进入寮抽奖。"""
+        collected = False
+        self.screenshot()
+        if self.appear_then_click(self.I_GUILD_EXPAND):
+            self.screenshot()
+
+        if self.appear_then_click(
+            self.I_GUILD_ASSETS,
+            interval=0.5,
+            threshold=0.6,
+        ):
+            collected = True
+            self._settle_guild_reward(allow_assets_confirm=True)
+            self.screenshot()
+
+        if self.appear_then_click(self.I_GUILD_AP, interval=0.5):
+            collected = True
+            self._settle_guild_reward()
+            self.device.click_record_clear()
+        return collected
 
     def check_utilize_add(self):
         con = self.config.kekkai_utilize.utilize_config
@@ -168,79 +205,6 @@ class ScriptTask(GameUi, ReplaceShikigami, KekkaiUtilizeAssets):
 
         # 回到结界界面
         self.goto_page(page_guild_realm)
-
-    def check_and_get_guild_rewards(self) -> bool:
-        """
-        在寮的主界面 检查是否有奖励可收取 资金/体力/抽奖/...
-        如果有就顺带收取
-        :return: 任意一个收取了就返回True, 一个没收返回False
-        """
-        harvest_dict: dict[str, bool] = {
-            'ap': False, 'gold': False, 'lottery': False
-        }
-        timer_check = Timer(2).start()
-        while True:
-            self.screenshot()
-            if self.ui_reward_appear_click():
-                timer_check.reset()
-                continue
-            if timer_check.reached():
-                return False
-            # 关闭展开的寮活动横幅
-            if self.appear_then_click(self.I_GUILD_EXPAND):
-                timer_check.reset()
-                continue
-            # 资金收取确认
-            if self.appear_then_click(self.I_GUILD_ASSETS_RECEIVE, interval=1):
-                time.sleep(1)
-                harvest_dict['gold'] = True
-                timer_check.reset()
-                continue
-            # 收资金
-            if self.appear_then_click(self.I_GUILD_ASSETS, interval=1.5, threshold=0.6):
-                timer_check.reset()
-                harvest_dict['gold'] = True
-                continue
-            # 收体力
-            if self.appear_then_click(self.I_GUILD_AP, interval=1):
-                # 等待1秒，看到获得奖励
-                time.sleep(1)
-                harvest_dict['ap'] = True
-                timer_check.reset()
-                self.device.click_record_clear()
-                continue
-            # 抽奖
-            if self.appear(self.I_GUILD_LOTTERY, interval=1):
-                self.guild_lottery()
-                harvest_dict['lottery'] = True
-                timer_check.reset()
-                self.device.click_record_clear()
-                continue
-            if any(harvest_dict.values()) and not self.appear(self.I_UI_REWARD):
-                return True
-        return False
-
-    def guild_lottery(self):
-        """寮抽奖"""
-        timeout_timer = Timer(4).start()
-        while not timeout_timer.reached():  # 进入抽奖界面
-            self.screenshot()
-            if self.appear(self.I_GUILD_LOTTERY) and \
-                    self.ui_click_until_appear_or_timeout(self.I_GUILD_LOTTERY, self.I_CHECK_GUILD_LOTTERY,
-                                                          interval=1.5, timeout=7):  # 漫长的散步
-                break
-        timeout_timer.reset()
-        while not timeout_timer.reached():
-            self.screenshot()
-            self.ui_reward_appear_click()
-            if self.appear(self.I_GUILD_LOTTERY_SPECIAL_REWARD, interval=1):  # 特殊奖励
-                self.click(self.C_UI_REWARD)
-                continue
-            if self.appear(self.I_KU_CHECK_CAN_LOTTERY, interval=3):  # 开始抽奖
-                self.swipe(self.S_GUILD_LOTTERY)
-                timeout_timer.reset()
-                continue
-        self.appear_then_click(self.I_UI_BACK_YELLOW)
 
     def check_box_ap_or_exp(self, ap_enable: bool = True, exp_enable: bool = True, exp_waste: bool = True) -> bool:
         """
