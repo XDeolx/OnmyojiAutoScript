@@ -1,6 +1,6 @@
 # testoyj 更新日志
 
-本文件只记录 `zHydeol/OnmyojiAutoScript` 的 `testoyj` 分支改动，独立于上游 README 和发布说明。
+本文件只记录 `XDeolx/OnmyojiAutoScript` 的 `testoyj` 分支改动，独立于上游 README 和发布说明。
 
 ## 2026-08-27
 
@@ -44,13 +44,13 @@
 
 ### 兼容说明
 
-- 周计划界面需要配套使用 `zHydeol/OASX` 的 `testoyj` 分支。
+- 周计划界面需要配套使用 `XDeolx/OASX` 的 `testoyj` 分支。
 - 上游 OASX `v0.3.12` 不包含周计划编辑界面。
 - `config/*.json` 中的账号配置属于本机数据，已由 `.gitignore` 排除，不会随分支或构建产物发布。
 
 ## 分支基线
 
 - 上游仓库：<https://github.com/AzurTian/OnmyojiAutoScript>
-- 分支仓库：<https://github.com/zHydeol/OnmyojiAutoScript/tree/testoyj>
+- 分支仓库：<https://github.com/XDeolx/OnmyojiAutoScript/tree/testoyj>
 - 本轮改动基于上游 `mine` 分支提交 `b9fe715f`。
-- 配套 OASX 更新日志：<https://github.com/zHydeol/OASX/blob/testoyj/TESTOYJ_CHANGELOG.md>
+- 配套 OASX 更新日志：<https://github.com/XDeolx/OASX/blob/testoyj/TESTOYJ_CHANGELOG.md>

@@ -27,7 +27,7 @@
 
 #### 主仓库: [https://github.com/runhey/OnmyojiAutoScript](https://github.com/runhey/OnmyojiAutoScript)
 
-#### [`testoyj` 更新日志](./TESTOYJ_CHANGELOG.md) | [配套 OASX 版本](https://github.com/zHydeol/OASX/releases)
+#### [`testoyj` 更新日志](./TESTOYJ_CHANGELOG.md) | [配套 OASX 版本](https://github.com/XDeolx/OASX/releases)
 
 </div>
 
