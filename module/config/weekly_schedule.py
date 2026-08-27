@@ -10,6 +10,8 @@ from module.config.utils import convert_to_underscore, read_file, write_file
 class WeeklySchedule:
     """Persistent weekly task schedule for one script config."""
 
+    DEFAULT_FREE_CYCLE_TASKS = ('KekkaiActivation', 'KekkaiUtilize')
+
     def __init__(self, config_name: str):
         self.config_name = config_name
 
@@ -38,6 +40,9 @@ class WeeklySchedule:
             'turtle_mode': bool(raw.get('turtle_mode', False)),
             'turtle_keep_tasks': self.normalize_tasks(raw.get('turtle_keep_tasks', [])),
             'turtle_restore_pending': bool(raw.get('turtle_restore_pending', False)),
+            'free_cycle_tasks': self.normalize_tasks(
+                raw.get('free_cycle_tasks', self.DEFAULT_FREE_CYCLE_TASKS)
+            ),
             'entries': clean_entries,
             'last_applied_date': str(raw.get('last_applied_date', '')),
             'last_applied_at': str(raw.get('last_applied_at', '')),
@@ -50,6 +55,7 @@ class WeeklySchedule:
         catch_up_missed: bool | None = None,
         turtle_mode: bool | None = None,
         turtle_keep_tasks: list[str] | None = None,
+        free_cycle_tasks: list[str] | None = None,
     ) -> dict:
         previous = self.load()
         was_enabled = previous['enabled']
@@ -61,9 +67,10 @@ class WeeklySchedule:
             if turtle_keep_tasks is None
             else self.normalize_tasks(turtle_keep_tasks)
         )
-        turtle_changed = (
-            next_turtle_mode != previous['turtle_mode']
-            or next_turtle_tasks != previous['turtle_keep_tasks']
+        next_free_cycle_tasks = (
+            previous['free_cycle_tasks']
+            if free_cycle_tasks is None
+            else self.normalize_tasks(free_cycle_tasks)
         )
         restore_pending = previous['turtle_restore_pending']
         if next_turtle_mode:
@@ -80,11 +87,12 @@ class WeeklySchedule:
             'turtle_mode': next_turtle_mode,
             'turtle_keep_tasks': next_turtle_tasks,
             'turtle_restore_pending': restore_pending,
+            'free_cycle_tasks': next_free_cycle_tasks,
             'entries': self.normalize_entries(entries),
             'last_applied_date': previous['last_applied_date'],
             'last_applied_at': previous['last_applied_at'],
         }
-        if (enabled and not was_enabled) or turtle_changed:
+        if enabled and not was_enabled:
             data['last_applied_date'] = ''
             data['last_applied_at'] = ''
         write_file(str(self.path), data)
@@ -200,6 +208,13 @@ class WeeklySchedule:
         data['turtle_restore_pending'] = False
         write_file(str(self.path), data)
 
+    def clear_turtle_restore_pending(self) -> None:
+        data = self.load()
+        if not data['turtle_restore_pending']:
+            return
+        data['turtle_restore_pending'] = False
+        write_file(str(self.path), data)
+
     def next_daily_refresh(self, after: datetime | None = None) -> datetime | None:
         if not self.load()['enabled']:
             return None
@@ -223,6 +238,7 @@ class WeeklySchedule:
                 data['catch_up_missed'],
                 data['turtle_mode'],
                 data['turtle_keep_tasks'],
+                data['free_cycle_tasks'],
             )
 
     @staticmethod

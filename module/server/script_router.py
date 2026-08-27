@@ -45,6 +45,7 @@ class WeeklyScheduleRequest(BaseModel):
     catch_up_missed: bool = False
     turtle_mode: bool | None = None
     turtle_keep_tasks: list[str] | None = None
+    free_cycle_tasks: list[str] | None = None
     entries: list[WeeklyScheduleEntryRequest] = Field(default_factory=list)
 
 
@@ -395,6 +396,14 @@ async def put_weekly_schedule(script_name: str, payload: WeeklyScheduleRequest):
     )
     if effective_turtle_mode and not effective_turtle_tasks:
         raise HTTPException(status_code=400, detail='Turtle mode requires at least one retained task')
+    free_cycle_tasks = None
+    if payload.free_cycle_tasks is not None:
+        free_cycle_tasks = []
+        for task in payload.free_cycle_tasks:
+            task_key = convert_to_underscore(task)
+            if task_key not in available_tasks:
+                raise HTTPException(status_code=400, detail=f'Unknown free-cycle task: {task}')
+            free_cycle_tasks.append(available_tasks[task_key])
     try:
         schedule.save(
             payload.enabled,
@@ -402,6 +411,7 @@ async def put_weekly_schedule(script_name: str, payload: WeeklyScheduleRequest):
             payload.catch_up_missed,
             payload.turtle_mode,
             turtle_keep_tasks,
+            free_cycle_tasks,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
@@ -409,18 +419,25 @@ async def put_weekly_schedule(script_name: str, payload: WeeklyScheduleRequest):
 
 
 @script_app.post('/{script_name}/weekly_schedule/apply')
-async def apply_weekly_schedule(script_name: str):
+async def apply_weekly_schedule(
+    script_name: str,
+    preserve_existing_times: bool = False,
+):
     if script_name not in mm.all_script_files():
         raise HTTPException(status_code=404, detail='Config not found')
     config = mm.config_cache(script_name)
-    result = config.apply_weekly_schedule_today(force=True)
-    if result['applied'] or result['disabled'] or result['restored']:
+    result = config.apply_weekly_schedule_today(
+        force=True,
+        preserve_existing_times=preserve_existing_times,
+    )
+    if result['applied'] or result['disabled'] or result['restored'] or result['preserved']:
         await _broadcast_schedule(script_name, config)
     response = _weekly_schedule_response(script_name)
     response['applied_tasks'] = sorted(result['applied'])
     response['skipped_tasks'] = sorted(result['skipped'])
     response['disabled_tasks'] = sorted(result['disabled'])
     response['restored_tasks'] = sorted(result['restored'])
+    response['preserved_tasks'] = sorted(result['preserved'])
     return response
 
 @script_app.get('/{script_name}/{task}/args')

@@ -110,6 +110,22 @@ class WeeklyScheduleTest(unittest.TestCase):
         schedule.mark_applied(datetime(2026, 8, 26, 12))
         self.assertFalse(schedule.load()['turtle_restore_pending'])
 
+    def test_free_cycle_defaults_can_be_cleared_and_are_copied(self):
+        source = WeeklySchedule('oas1')
+        self.assertEqual(
+            source.load()['free_cycle_tasks'],
+            ['KekkaiActivation', 'KekkaiUtilize'],
+        )
+        source.save(
+            True,
+            [{'task': 'AreaBoss', 'weekday': 3, 'time': '17:49'}],
+            free_cycle_tasks=[],
+        )
+        WeeklySchedule.copy('oas1', 'oas2')
+
+        self.assertEqual(source.load()['free_cycle_tasks'], [])
+        self.assertEqual(WeeklySchedule('oas2').load()['free_cycle_tasks'], [])
+
 
 if __name__ == '__main__':
     unittest.main()
