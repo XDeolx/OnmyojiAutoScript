@@ -503,6 +503,10 @@ mode_3策略是刷到五个契灵后开始结契，选择高级、中级盘来�
 	<message><source>Guild Assets Enable</source><translation>顺路收取寮资金</translation></message>
 	<message><source>Box Ap Enable</source><translation>顺路收取体力盒子</translation></message>
 	<message><source>Box Exp Enable</source><translation>顺路收取经验盒子</translation></message>
+	<message><source>Lazy Mode</source><translation>怠惰模式</translation></message>
+	<message><source>lazy_mode_help</source><translation>开启后每次任务按权重随机进入怠惰模式；命中时不比较奖励数值，优先选择当前可见的五星及以上目标卡，否则选择首个符合策略的四星卡。</translation></message>
+	<message><source>Lazy Mode Weight</source><translation>怠惰模式权重</translation></message>
+	<message><source>lazy_mode_weight_help</source><translation>取值范围0-1，默认1；0表示永不触发，1表示每次触发。</translation></message>
 	<message><source>utilize_rule_help</source><translation>挑选结界卡的规则，使用默认default即可，具体规则看文档[任务列表]，不可以选auto,已经弃置了。</translation></message>
 	<message><source>auto_switch_sort_help</source><translation>会自动寻找最优的坑位</translation></message>
 	<message><source>shikigami_class_help</source><translation>选择的式神类别（寄养默认选择N卡，且不建议选别的）</translation></message>
@@ -512,8 +516,7 @@ mode_3策略是刷到五个契灵后开始结契，选择高级、中级盘来�
 	<message><source>box_ap_enable_help</source><translation>必选项</translation></message>
 	<message><source>box_exp_enable_help</source><translation>必选项</translation></message>
 	<message><source>SelectFriendList</source><translation>选择同区还是跨区好友</translation></message>
-	<message><source>select_friend_list_help</source><translation>由于该死的游戏制作水准，无论任何方式都不可以稳定的对结界卡进行排序，需要从头到尾遍历一遍。
-且切换好友列表时候会丢失原先选定的好友卡，为此同时选择两个好友列表的最优解是会花费更多的时间，不打算支持</translation></message>
+	<message><source>select_friend_list_help</source><translation>仅决定优先扫描同区或跨区；优先范围全是当前策略低价值卡时会自动检查另一区。</translation></message>
 	<message><source>Box Exp Waste</source><translation>从盒子提取经验时浪费一部分</translation></message>
 	<message><source>box_exp_waste_help</source><translation>某些时候寄养上存在满级的式神，收取经验盒子时会有提示，对于挂机玩家这点经验微不足道。如果不使能这一选项，将跳过收取经验盒子</translation></message>
 </context>	

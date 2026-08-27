@@ -35,14 +35,41 @@ class WeeklySchedule:
         return {
             'enabled': bool(raw.get('enabled', True)),
             'catch_up_missed': bool(raw.get('catch_up_missed', False)),
+            'turtle_mode': bool(raw.get('turtle_mode', False)),
+            'turtle_keep_tasks': self.normalize_tasks(raw.get('turtle_keep_tasks', [])),
+            'turtle_restore_pending': bool(raw.get('turtle_restore_pending', False)),
             'entries': clean_entries,
             'last_applied_date': str(raw.get('last_applied_date', '')),
             'last_applied_at': str(raw.get('last_applied_at', '')),
         }
 
-    def save(self, enabled: bool, entries: list[dict], catch_up_missed: bool | None = None) -> dict:
+    def save(
+        self,
+        enabled: bool,
+        entries: list[dict],
+        catch_up_missed: bool | None = None,
+        turtle_mode: bool | None = None,
+        turtle_keep_tasks: list[str] | None = None,
+    ) -> dict:
         previous = self.load()
         was_enabled = previous['enabled']
+        next_turtle_mode = (
+            previous['turtle_mode'] if turtle_mode is None else bool(turtle_mode)
+        )
+        next_turtle_tasks = (
+            previous['turtle_keep_tasks']
+            if turtle_keep_tasks is None
+            else self.normalize_tasks(turtle_keep_tasks)
+        )
+        turtle_changed = (
+            next_turtle_mode != previous['turtle_mode']
+            or next_turtle_tasks != previous['turtle_keep_tasks']
+        )
+        restore_pending = previous['turtle_restore_pending']
+        if next_turtle_mode:
+            restore_pending = False
+        elif previous['turtle_mode']:
+            restore_pending = True
         data = {
             'enabled': bool(enabled),
             'catch_up_missed': (
@@ -50,15 +77,33 @@ class WeeklySchedule:
                 if catch_up_missed is None
                 else bool(catch_up_missed)
             ),
+            'turtle_mode': next_turtle_mode,
+            'turtle_keep_tasks': next_turtle_tasks,
+            'turtle_restore_pending': restore_pending,
             'entries': self.normalize_entries(entries),
             'last_applied_date': previous['last_applied_date'],
             'last_applied_at': previous['last_applied_at'],
         }
-        if enabled and not was_enabled:
+        if (enabled and not was_enabled) or turtle_changed:
             data['last_applied_date'] = ''
             data['last_applied_at'] = ''
         write_file(str(self.path), data)
         return data
+
+    @staticmethod
+    def normalize_tasks(tasks) -> list[str]:
+        if not isinstance(tasks, (list, tuple, set)):
+            return []
+        normalized = []
+        seen = set()
+        for task in tasks:
+            name = str(task).strip()
+            key = convert_to_underscore(name)
+            if not name or key in seen:
+                continue
+            seen.add(key)
+            normalized.append(name)
+        return normalized
 
     @staticmethod
     def normalize_entries(entries: list[dict]) -> list[dict]:
@@ -88,10 +133,10 @@ class WeeklySchedule:
             normalized.append(item)
         return sorted(normalized, key=lambda item: (item['weekday'], item['time'], item['task']))
 
-    def entries_for(self, task: str) -> list[dict]:
+    def entries_for(self, task: str, include_disabled: bool = False) -> list[dict]:
         task_key = convert_to_underscore(task)
         data = self.load()
-        if not data['enabled']:
+        if not data['enabled'] and not include_disabled:
             return []
         return [
             entry
@@ -99,8 +144,13 @@ class WeeklySchedule:
             if convert_to_underscore(entry.get('task', '')) == task_key
         ]
 
-    def next_run(self, task: str, after: datetime | None = None) -> datetime | None:
-        entries = self.entries_for(task)
+    def next_run(
+        self,
+        task: str,
+        after: datetime | None = None,
+        include_disabled: bool = False,
+    ) -> datetime | None:
+        entries = self.entries_for(task, include_disabled=include_disabled)
         if not entries:
             return None
         after = (after or datetime.now()).replace(microsecond=0)
@@ -147,6 +197,7 @@ class WeeklySchedule:
         data = self.load()
         data['last_applied_date'] = applied_at.date().isoformat()
         data['last_applied_at'] = str(applied_at)
+        data['turtle_restore_pending'] = False
         write_file(str(self.path), data)
 
     def next_daily_refresh(self, after: datetime | None = None) -> datetime | None:
@@ -170,6 +221,8 @@ class WeeklySchedule:
                 data['enabled'],
                 data['entries'],
                 data['catch_up_missed'],
+                data['turtle_mode'],
+                data['turtle_keep_tasks'],
             )
 
     @staticmethod

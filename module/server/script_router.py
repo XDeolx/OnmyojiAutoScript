@@ -43,6 +43,8 @@ class WeeklyScheduleEntryRequest(BaseModel):
 class WeeklyScheduleRequest(BaseModel):
     enabled: bool = True
     catch_up_missed: bool = False
+    turtle_mode: bool | None = None
+    turtle_keep_tasks: list[str] | None = None
     entries: list[WeeklyScheduleEntryRequest] = Field(default_factory=list)
 
 
@@ -371,11 +373,35 @@ async def put_weekly_schedule(script_name: str, payload: WeeklyScheduleRequest):
             'weekday': item.weekday,
             'time': item.time,
         })
+    schedule = WeeklySchedule(script_name)
+    previous = schedule.load()
+    turtle_keep_tasks = None
+    if payload.turtle_keep_tasks is not None:
+        turtle_keep_tasks = []
+        for task in payload.turtle_keep_tasks:
+            task_key = convert_to_underscore(task)
+            if task_key not in available_tasks:
+                raise HTTPException(status_code=400, detail=f'Unknown turtle task: {task}')
+            turtle_keep_tasks.append(available_tasks[task_key])
+    effective_turtle_mode = (
+        previous['turtle_mode']
+        if payload.turtle_mode is None
+        else payload.turtle_mode
+    )
+    effective_turtle_tasks = (
+        previous['turtle_keep_tasks']
+        if turtle_keep_tasks is None
+        else turtle_keep_tasks
+    )
+    if effective_turtle_mode and not effective_turtle_tasks:
+        raise HTTPException(status_code=400, detail='Turtle mode requires at least one retained task')
     try:
-        WeeklySchedule(script_name).save(
+        schedule.save(
             payload.enabled,
             entries,
             payload.catch_up_missed,
+            payload.turtle_mode,
+            turtle_keep_tasks,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
@@ -388,11 +414,13 @@ async def apply_weekly_schedule(script_name: str):
         raise HTTPException(status_code=404, detail='Config not found')
     config = mm.config_cache(script_name)
     result = config.apply_weekly_schedule_today(force=True)
-    if result['applied']:
+    if result['applied'] or result['disabled'] or result['restored']:
         await _broadcast_schedule(script_name, config)
     response = _weekly_schedule_response(script_name)
     response['applied_tasks'] = sorted(result['applied'])
     response['skipped_tasks'] = sorted(result['skipped'])
+    response['disabled_tasks'] = sorted(result['disabled'])
+    response['restored_tasks'] = sorted(result['restored'])
     return response
 
 @script_app.get('/{script_name}/{task}/args')

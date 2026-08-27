@@ -290,21 +290,23 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RyouToppaAssets):
             time.sleep(delay)
         rcl = area_map[index].get("rule_click")
         # 塔塔开！
-        click_failure_count = 0
+        enter_click_count = 0
         self.device.click_record_clear()
         while True:
             self.screenshot()
             if self.is_in_battle(False):
                 logger.info("Start attach area [%s]" % str(index + 1))
                 return self.run_general_battle(config=self.config.ryou_toppa.general_battle_config)
-            if click_failure_count >= 5:
-                logger.warning("Click failure, check your click position")
+            # 每次点击后都会先在下一轮截图确认是否已进入战斗；第三次
+            # 点击后仍未进入，通常表示该结界已经被其他寮友抢先挑战。
+            if enter_click_count >= 3:
+                logger.warning('挑战进入次数过多，可能已被击破')
                 return False
             if self.appear_then_click(RealmRaidAssets.I_FIRE, interval=2, threshold=0.8):
-                click_failure_count += 1
+                enter_click_count += 1
                 continue
             if self.click(rcl, interval=5):
-                click_failure_count += 1
+                enter_click_count += 1
                 continue
 
 

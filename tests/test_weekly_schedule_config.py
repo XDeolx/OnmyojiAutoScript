@@ -38,6 +38,10 @@ class WeeklyScheduleConfigTest(unittest.TestCase):
                 ),
             ),
         )
+        config.model.dict = lambda: {
+            'area_boss': {},
+            'restart': {},
+        }
         config.save = Mock()
         return config
 
@@ -86,8 +90,66 @@ class WeeklyScheduleConfigTest(unittest.TestCase):
         second = config.apply_weekly_schedule_today(datetime(2026, 8, 26, 13))
 
         self.assertEqual(first['applied'], ['AreaBoss'])
-        self.assertEqual(second, {'applied': [], 'skipped': []})
+        self.assertEqual(second, {
+            'applied': [],
+            'skipped': [],
+            'disabled': [],
+            'restored': [],
+        })
         config.save.assert_called_once()
+
+    def test_turtle_mode_disables_every_task_except_retained_tasks(self):
+        WeeklySchedule('oas1').save(
+            True,
+            [
+                {'task': 'AreaBoss', 'weekday': 3, 'time': '17:49'},
+                {'task': 'Restart', 'weekday': 3, 'time': '18:30'},
+            ],
+            turtle_mode=True,
+            turtle_keep_tasks=['AreaBoss'],
+        )
+        config = self._config()
+        config.model.restart.scheduler.enable = True
+
+        result = config.apply_weekly_schedule_today(datetime(2026, 8, 26, 12))
+
+        self.assertEqual(result['applied'], ['AreaBoss'])
+        self.assertEqual(result['disabled'], ['Restart'])
+        self.assertTrue(config.model.area_boss.scheduler.enable)
+        self.assertFalse(config.model.restart.scheduler.enable)
+
+    def test_disabling_turtle_mode_restores_all_weekly_tasks(self):
+        schedule = WeeklySchedule('oas1')
+        entries = [
+            {'task': 'AreaBoss', 'weekday': 3, 'time': '17:49'},
+            {'task': 'Restart', 'weekday': 4, 'time': '09:05'},
+        ]
+        schedule.save(
+            True,
+            entries,
+            turtle_mode=True,
+            turtle_keep_tasks=['AreaBoss'],
+        )
+        schedule.save(
+            True,
+            entries,
+            turtle_mode=False,
+            turtle_keep_tasks=['AreaBoss'],
+        )
+        config = self._config()
+        config.model.area_boss.scheduler.enable = False
+        config.model.restart.scheduler.enable = False
+
+        result = config.apply_weekly_schedule_today(datetime(2026, 8, 26, 12))
+
+        self.assertEqual(set(result['restored']), {'AreaBoss', 'Restart'})
+        self.assertTrue(config.model.area_boss.scheduler.enable)
+        self.assertTrue(config.model.restart.scheduler.enable)
+        self.assertEqual(
+            config.model.restart.scheduler.next_run,
+            datetime(2026, 8, 27, 9, 5),
+        )
+        self.assertFalse(schedule.load()['turtle_restore_pending'])
 
 
 if __name__ == '__main__':

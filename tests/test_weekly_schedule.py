@@ -83,6 +83,33 @@ class WeeklyScheduleTest(unittest.TestCase):
         self.assertTrue(schedule.needs_daily_apply(datetime(2026, 8, 27).date()))
         self.assertTrue(schedule.load()['catch_up_missed'])
 
+    def test_turtle_mode_persists_tasks_and_marks_restore(self):
+        schedule = WeeklySchedule('oas1')
+        schedule.save(
+            True,
+            [{'task': 'AreaBoss', 'weekday': 3, 'time': '17:49'}],
+            turtle_mode=True,
+            turtle_keep_tasks=['AreaBoss', 'area_boss', 'KekkaiUtilize'],
+        )
+
+        active = schedule.load()
+        self.assertTrue(active['turtle_mode'])
+        self.assertEqual(
+            active['turtle_keep_tasks'],
+            ['AreaBoss', 'KekkaiUtilize'],
+        )
+        self.assertFalse(active['turtle_restore_pending'])
+
+        schedule.save(
+            True,
+            active['entries'],
+            turtle_mode=False,
+            turtle_keep_tasks=active['turtle_keep_tasks'],
+        )
+        self.assertTrue(schedule.load()['turtle_restore_pending'])
+        schedule.mark_applied(datetime(2026, 8, 26, 12))
+        self.assertFalse(schedule.load()['turtle_restore_pending'])
+
 
 if __name__ == '__main__':
     unittest.main()
