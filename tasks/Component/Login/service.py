@@ -40,6 +40,9 @@ class LoginService(BaseTask, RestartAssets, GameUiAssets):
             if self.appear_then_click(self.I_CANCEL_BATTLE, interval=0.8):
                 logger.info('Cancel continue battle')
                 continue
+            if self.appear_then_click(self.I_RETURN_CHESS_CANCEL, interval=0.8):
+                logger.info('Cancel return to chess battle')
+                continue
             if self.appear(self.I_CHECK_MAIN, interval=0.2) and not self.appear(self.I_MAIN_GOTO_SHIKIGAMI_RECORDS):
                 logger.info('The main had already appeared, but shikigami records had not yet appeared')
                 skip_login_animation = False

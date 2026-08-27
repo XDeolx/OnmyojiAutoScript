@@ -62,7 +62,10 @@ page_login.add_enter_success_hooks(handle_login_page)
 # 庭院主页(此处通过提高阈值来处理部分探索章节会识别成原始庭院的问题, 后续有其他更好方法需改善)
 page_main = Page(GameUiAssets.I_CHECK_MAIN, category="global")
 page_main.add_enter_success_hooks(
-    GameUiAssets.I_AD_CLOSE_RED, GlobalGameAssets.I_UI_BACK_RED, RestartAssets.I_CANCEL_BATTLE,
+    GameUiAssets.I_AD_CLOSE_RED,
+    GlobalGameAssets.I_UI_BACK_RED,
+    RestartAssets.I_CANCEL_BATTLE,
+    RestartAssets.I_RETURN_CHESS_CANCEL,
 )
 
 # 闲庭仍会命中庭院主页标志，因此使用更高优先级先识别闲庭，再点击左上角返回庭院。
