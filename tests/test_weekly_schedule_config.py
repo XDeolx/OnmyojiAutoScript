@@ -113,6 +113,50 @@ class WeeklyScheduleConfigTest(unittest.TestCase):
         })
         config.save.assert_called_once()
 
+    def test_daily_sync_disables_planned_task_on_off_day(self):
+        WeeklySchedule('oas1').save(True, [
+            {'task': 'Restart', 'weekday': 4, 'time': '19:30'},
+        ])
+        config = self._config()
+        config.model.restart.scheduler.enable = True
+        restart_time = config.model.restart.scheduler.next_run
+
+        result = config.apply_weekly_schedule_today(datetime(2026, 8, 28, 0, 1))
+
+        self.assertEqual(result['disabled'], ['Restart'])
+        self.assertFalse(config.model.restart.scheduler.enable)
+        self.assertEqual(config.model.restart.scheduler.next_run, restart_time)
+        self.assertTrue(config.model.area_boss.scheduler.enable)
+
+    def test_daily_sync_reenables_task_on_next_planned_day(self):
+        WeeklySchedule('oas1').save(True, [
+            {'task': 'Restart', 'weekday': 1, 'time': '19:30'},
+        ])
+        config = self._config()
+        config.model.restart.scheduler.enable = False
+
+        result = config.apply_weekly_schedule_today(datetime(2026, 8, 31, 0, 1))
+
+        self.assertEqual(result['applied'], ['Restart'])
+        self.assertTrue(config.model.restart.scheduler.enable)
+        self.assertEqual(
+            config.model.restart.scheduler.next_run,
+            datetime(2026, 8, 31, 19, 30),
+        )
+
+    def test_off_day_disables_free_cycle_task_instead_of_preserving_it(self):
+        WeeklySchedule('oas1').save(True, [
+            {'task': 'KekkaiUtilize', 'weekday': 4, 'time': '08:10'},
+        ])
+        config = self._config()
+        config.model.kekkai_utilize.scheduler.enable = True
+
+        result = config.apply_weekly_schedule_today(datetime(2026, 8, 28, 0, 1))
+
+        self.assertEqual(result['disabled'], ['KekkaiUtilize'])
+        self.assertEqual(result['preserved'], [])
+        self.assertFalse(config.model.kekkai_utilize.scheduler.enable)
+
     def test_daily_sync_preserves_default_free_cycle_task_times(self):
         schedule = WeeklySchedule('oas1')
         schedule.save(True, [
@@ -172,6 +216,7 @@ class WeeklyScheduleConfigTest(unittest.TestCase):
             turtle_keep_tasks=['AreaBoss'],
         )
         config = self._config()
+        config.model.area_boss.scheduler.enable = False
         config.model.restart.scheduler.enable = True
 
         result = config.apply_weekly_schedule_today(datetime(2026, 8, 26, 12))
@@ -179,6 +224,22 @@ class WeeklyScheduleConfigTest(unittest.TestCase):
         self.assertEqual(result['applied'], ['AreaBoss'])
         self.assertEqual(result['disabled'], ['Restart'])
         self.assertTrue(config.model.area_boss.scheduler.enable)
+        self.assertFalse(config.model.restart.scheduler.enable)
+
+    def test_turtle_mode_does_not_keep_planned_task_enabled_on_off_day(self):
+        WeeklySchedule('oas1').save(
+            True,
+            [{'task': 'Restart', 'weekday': 4, 'time': '19:30'}],
+            turtle_mode=True,
+            turtle_keep_tasks=['Restart'],
+        )
+        config = self._config()
+        config.model.area_boss.scheduler.enable = False
+        config.model.restart.scheduler.enable = True
+
+        result = config.apply_weekly_schedule_today(datetime(2026, 8, 28, 0, 1))
+
+        self.assertEqual(result['disabled'], ['Restart'])
         self.assertFalse(config.model.restart.scheduler.enable)
 
     def test_enabling_turtle_mode_preserves_retained_task_time(self):
@@ -212,7 +273,7 @@ class WeeklyScheduleConfigTest(unittest.TestCase):
         self.assertEqual(result['applied'], [])
         self.assertEqual(schedule.load()['last_applied_date'], '2026-08-26')
 
-    def test_disabling_turtle_mode_restores_all_weekly_tasks(self):
+    def test_disabling_turtle_mode_restores_only_today_weekly_tasks(self):
         schedule = WeeklySchedule('oas1')
         entries = [
             {'task': 'AreaBoss', 'weekday': 3, 'time': '17:49'},
@@ -238,9 +299,10 @@ class WeeklyScheduleConfigTest(unittest.TestCase):
         restart_time = config.model.restart.scheduler.next_run
         result = config.apply_weekly_schedule_today(datetime(2026, 8, 26, 12))
 
-        self.assertEqual(set(result['restored']), {'AreaBoss', 'Restart'})
+        self.assertEqual(result['restored'], ['AreaBoss'])
+        self.assertEqual(result['disabled'], [])
         self.assertTrue(config.model.area_boss.scheduler.enable)
-        self.assertTrue(config.model.restart.scheduler.enable)
+        self.assertFalse(config.model.restart.scheduler.enable)
         self.assertEqual(config.model.area_boss.scheduler.next_run, area_boss_time)
         self.assertEqual(config.model.restart.scheduler.next_run, restart_time)
         self.assertFalse(schedule.load()['turtle_restore_pending'])
