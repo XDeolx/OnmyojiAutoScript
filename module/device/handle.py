@@ -4,6 +4,7 @@
 import re
 
 from enum import Enum
+from time import sleep
 from cached_property import cached_property
 from anytree import NodeMixin, RenderTree, PreOrderIter
 from win32api import GetSystemMetrics, SendMessage, MAKELONG, PostMessage
@@ -17,6 +18,7 @@ from win32con import (SRCCOPY, DESKTOPHORZRES, DESKTOPVERTRES, WM_LBUTTONUP,
                       WM_LBUTTONDOWN, WM_ACTIVATE, WA_ACTIVE, MK_LBUTTON,
                       WM_NCHITTEST, WM_SETCURSOR, HTCLIENT, WM_MOUSEMOVE)
 from module.config.config import Config
+from module.exception import EmulatorNotRunningError
 from module.logger import logger
 
 
@@ -198,9 +200,14 @@ class Handle:
                     self.root_handle_title = self.root_handle
         logger.info(f'The root handle title is {self.root_handle_title} and num is {self.root_handle_num}')
 
-        # 获取句柄树
-        self.root_node = WindowNode(name=self.root_handle_title, num=self.root_handle_num)
-        Handle.handle_tree(self.root_handle_num, self.root_node)
+        # MuMu exposes its root window before the render child is ready.
+        # Retry the tree build so first startup does not race children[0].
+        if not self._build_handle_tree_with_retry():
+            if self.root_handle_title and 'MuMu' in self.root_handle_title:
+                logger.warning('MuMu child window still not ready after 10 attempts, retry device initialization')
+                raise EmulatorNotRunningError
+            logger.warning('Window child tree still not ready after 10 attempts, use title-based fallback')
+
         logger.info('Emulator handle structure:')
         for pre, fill, node in RenderTree(self.root_node):
             logger.info("%s%s" % (pre, node.name))
@@ -212,9 +219,7 @@ class Handle:
 
         # window系统的缩放
         logger.info(f'Your window screen scale rate: {window_scale_rate()}')
-        _ = self.screenshot_handle_num
-        logger.info(f'Screenshot handle num: {self.screenshot_handle_num}')
-        logger.info(f'Emulator screenshot size: {self.screenshot_size}')
+        # Resolve screenshot handles lazily after the emulator has fully initialized.
 
     @staticmethod
     def all_windows() -> list:
@@ -295,6 +300,20 @@ class Handle:
                 # 递归遍历子窗体的子窗体
                 Handle.handle_tree(child_hwnd, child_node, level + 1)
 
+    def _build_handle_tree_with_retry(self, attempts: int = 10, interval: float = 1) -> bool:
+        for attempt in range(attempts):
+            if attempt:
+                sleep(interval)
+            self.root_node = WindowNode(name=self.root_handle_title, num=self.root_handle_num)
+            Handle.handle_tree(self.root_handle_num, self.root_node)
+            if self.root_node.children:
+                if attempt:
+                    logger.info(f'Window child tree ready after {attempt + 1} attempts')
+                return True
+            if attempt == 0:
+                logger.info('Window child tree not ready, waiting for emulator to finish initializing')
+        return False
+
     @cached_property
     def emulator_family(self) -> EmulatorFamily:
         """
@@ -341,6 +360,9 @@ class Handle:
         :return:  出错返回None
         """
         if self.emulator_family == EmulatorFamily.FAMILY_MUMU:
+            if not self.root_node.children:
+                logger.warning('MuMu child window is not ready, retry device initialization')
+                raise EmulatorNotRunningError
             # 使用正则匹配12 来判定是不是mumu12这并不是一个好的方法
             name = self.root_node.children[0].name
             num = self.root_node.children[0].num
