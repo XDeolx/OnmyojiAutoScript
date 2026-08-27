@@ -22,6 +22,7 @@ _EQ_LINE_RE = re.compile(r"^═{15,}\s*$")
 _EQ_TITLE_LINE_RE = re.compile(r"^═{10,}\s+(?P<title>.*?)\s+═{10,}\s*$")
 _TITLE_LINE_RE = re.compile(r"^─{10,}\s*(?P<title>.*?)\s*─{10,}\s*$")
 _TASK_ENDED_RE = re.compile(r"^(?P<title>.+?)\s+task ended\b", re.IGNORECASE)
+_SCHEDULER_TASK_END_RE = re.compile(r"^Scheduler:\s+End task\s+`(?P<task>[^`]+)`\s*$")
 _BATTLE_TITLE = "GENERAL BATTLE START"
 _START_TITLE = "START"
 _SIX_REALMS_TITLE = "SIXREALMS"
@@ -162,6 +163,12 @@ class LogStatsParser:
         return matched.group("title").strip() if matched else None
 
     @staticmethod
+    def _extract_scheduler_task_end(line: str) -> str | None:
+        message = line.rsplit("|", 1)[-1].strip()
+        matched = _SCHEDULER_TASK_END_RE.match(message)
+        return matched.group("task").strip() if matched else None
+
+    @staticmethod
     def _is_battle_boundary(line: str) -> bool:
         matched = _TITLE_LINE_RE.match(line.strip())
         if not matched:
@@ -282,6 +289,10 @@ class LogStatsParser:
         if task_ended_title is not None:
             self._handle_task_ended(task_ended_title)
 
+        scheduler_task_end = self._extract_scheduler_task_end(line)
+        if scheduler_task_end is not None:
+            self._handle_scheduler_task_end(scheduler_task_end)
+
     def _consume_runtime_timestamp(self, ts: datetime) -> None:
         runtime = self.runtime
         runtime.region_last = ts
@@ -305,6 +316,14 @@ class LogStatsParser:
         if self._normalize_title(title) != self._normalize_title(self._active_task.name):
             return
         self._close_active_battle()
+
+    def _handle_scheduler_task_end(self, task_name: str) -> None:
+        if self._active_task is None:
+            return
+        if self._normalize_title(task_name) != self._normalize_title(self._active_task.name):
+            return
+        self._close_active_battle()
+        self._close_active_task()
 
     def _close_active_battle(self) -> None:
         if self._active_task is None or self._active_battle is None:
