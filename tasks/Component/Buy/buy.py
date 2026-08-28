@@ -137,6 +137,8 @@ class Buy(BaseTask, BuyAssets):
                         break
                     number_record.pop(0)
 
+        buy_more_mx_click = 5
+
         # 购买确认
         while 1:
             self.screenshot()
@@ -154,6 +156,10 @@ class Buy(BaseTask, BuyAssets):
                         continue
                 break
 
+            if buy_more_mx_click <= 0:
+                logger.warning('Buy more click times limit')
+                return False
+
             # 如果这个购买已达上限
             if self.appear(self.I_UI_CONFIRM_SAMLL):
                 self.ui_click_until_disappear(self.I_UI_CONFIRM_SAMLL, interval=1)
@@ -161,6 +167,7 @@ class Buy(BaseTask, BuyAssets):
                 return False
 
             if self.click(self.C_BUY_MORE, interval=2):
+                buy_more_mx_click -= 1
                 continue
 
     def buy_check_money(self, target: RuleOcr, minimum: int):
