@@ -94,6 +94,22 @@ class WeeklyScheduleConfigTest(unittest.TestCase):
         )
         config.save.assert_called_once()
 
+    def test_daily_sync_preserves_second_precision(self):
+        WeeklySchedule('oas1').save(True, [
+            {'task': 'AreaBoss', 'weekday': 3, 'time': '17:49:37'},
+        ])
+        config = self._config()
+
+        result = config.apply_weekly_schedule_today(
+            datetime(2026, 8, 26, 12),
+        )
+
+        self.assertEqual(result['applied'], ['AreaBoss'])
+        self.assertEqual(
+            config.model.area_boss.scheduler.next_run,
+            datetime(2026, 8, 26, 17, 49, 37),
+        )
+
     def test_daily_sync_only_runs_once_without_force(self):
         WeeklySchedule('oas1').save(True, [
             {'task': 'AreaBoss', 'weekday': 3, 'time': '17:49'},

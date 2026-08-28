@@ -34,6 +34,20 @@ class WeeklyScheduleTest(unittest.TestCase):
             datetime(2026, 8, 31, 9),
         )
 
+    def test_schedule_accepts_legacy_minutes_and_preserves_seconds(self):
+        schedule = WeeklySchedule('oas1')
+        saved = schedule.save(True, [
+            {'task': 'AreaBoss', 'weekday': 1, 'time': '09:00'},
+            {'task': 'Restart', 'weekday': 2, 'time': '10:15:37'},
+        ])
+
+        self.assertEqual(saved['entries'][0]['time'], '09:00:00')
+        self.assertEqual(saved['entries'][1]['time'], '10:15:37')
+        self.assertEqual(
+            schedule.next_run('Restart', datetime(2026, 8, 31, 12)),
+            datetime(2026, 9, 1, 10, 15, 37),
+        )
+
     def test_disabled_schedule_does_not_override_tasks(self):
         schedule = WeeklySchedule('oas1')
         schedule.save(False, [

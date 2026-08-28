@@ -7,6 +7,15 @@ from pathlib import Path
 from module.config.utils import convert_to_underscore, read_file, write_file
 
 
+def _parse_schedule_time(value: str) -> time:
+    for pattern in ('%H:%M:%S', '%H:%M'):
+        try:
+            return datetime.strptime(value, pattern).time()
+        except ValueError:
+            continue
+    raise ValueError(f'Invalid weekly schedule time: {value}')
+
+
 class WeeklySchedule:
     """Persistent weekly task schedule for one script config."""
 
@@ -126,13 +135,13 @@ class WeeklySchedule:
             if weekday < 1 or weekday > 7:
                 raise ValueError(f'Invalid weekday for {task}: {weekday}')
             try:
-                parsed_time = datetime.strptime(run_time, '%H:%M').time()
+                parsed_time = _parse_schedule_time(run_time)
             except ValueError as e:
                 raise ValueError(f'Invalid time for {task}: {run_time}') from e
             item = {
                 'task': task,
                 'weekday': weekday,
-                'time': parsed_time.strftime('%H:%M'),
+                'time': parsed_time.strftime('%H:%M:%S'),
             }
             key = (convert_to_underscore(task), weekday, item['time'])
             if key in seen:
@@ -164,7 +173,7 @@ class WeeklySchedule:
         after = (after or datetime.now()).replace(microsecond=0)
         candidates = []
         for entry in entries:
-            run_time = datetime.strptime(entry['time'], '%H:%M').time()
+            run_time = _parse_schedule_time(entry['time'])
             days_ahead = (entry['weekday'] - after.isoweekday()) % 7
             candidate = datetime.combine(after.date() + timedelta(days=days_ahead), run_time)
             if candidate <= after:
@@ -177,7 +186,7 @@ class WeeklySchedule:
         reference = (reference or datetime.now()).replace(microsecond=0)
         week_start = reference.date() - timedelta(days=reference.isoweekday() - 1)
         run_date = week_start + timedelta(days=int(entry['weekday']) - 1)
-        run_time = datetime.strptime(entry['time'], '%H:%M').time()
+        run_time = _parse_schedule_time(entry['time'])
         return datetime.combine(run_date, run_time)
 
     def targets_for_date(self, target_date: date) -> dict[str, datetime]:
@@ -189,7 +198,7 @@ class WeeklySchedule:
             if entry['weekday'] != target_date.isoweekday():
                 continue
             task_key = convert_to_underscore(entry['task'])
-            run_time = datetime.strptime(entry['time'], '%H:%M').time()
+            run_time = _parse_schedule_time(entry['time'])
             target = datetime.combine(target_date, run_time)
             current = targets.get(task_key)
             if current is None or target < current:
