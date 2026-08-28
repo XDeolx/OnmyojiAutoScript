@@ -73,13 +73,13 @@ class BondlingFairylandAssets:
 
 	# Ocr Rule Assets
 	# Ocr-description 
-	O_B_BONDLING_CLASS = RuleOcr(roi=(266,271,79,112), area=(287,271,36,112), mode="Single", method="Default", keyword="", name="b_bondling_class")
+	O_B_BONDLING_CLASS = RuleOcr(roi=(266,271,79,112), area=(266,271,79,112), mode="Single", method="Default", keyword="", name="b_bondling_class")
 	# 小盘子 
-	O_B_LOW_NUMBER = RuleOcr(roi=(543,14,96,33), area=(543,14,96,33), mode="DigitCounter", method="Default", keyword="", name="b_low_number")
+	O_B_LOW_NUMBER = RuleOcr(roi=(540,12,107,40), area=(540,12,107,40), mode="DigitCounter", method="Default", keyword="", name="b_low_number")
 	# 中盘子 
-	O_B_MEDIUM_NUMBER = RuleOcr(roi=(734,19,99,25), area=(734,19,99,25), mode="DigitCounter", method="Default", keyword="", name="b_medium_number")
+	O_B_MEDIUM_NUMBER = RuleOcr(roi=(728,15,113,35), area=(728,15,113,35), mode="DigitCounter", method="Default", keyword="", name="b_medium_number")
 	# 大盘子 
-	O_B_HIGH_NUMBER = RuleOcr(roi=(928,17,94,30), area=(928,17,94,30), mode="DigitCounter", method="Default", keyword="", name="b_high_number")
+	O_B_HIGH_NUMBER = RuleOcr(roi=(922,9,102,41), area=(922,9,102,41), mode="DigitCounter", method="Default", keyword="", name="b_high_number")
 	# 鸣契石 
 	O_B_STONE_NUMBER = RuleOcr(roi=(1135,16,78,32), area=(1135,16,78,32), mode="DigitCounter", method="Default", keyword="", name="b_stone_number")
 	# 召唤契灵数量 
@@ -178,5 +178,4 @@ class BondlingFairylandAssets:
 	I_BUY_SUB = RuleImage(roi_front=(468,540,43,40), roi_back=(468,540,43,40), threshold=0.8, method="Template matching", file="./tasks/BondlingFairyland/stone/buy_sub.png")
 	# 关闭购买契灵页面 
 	I_STONE_CLOSE = RuleImage(roi_front=(911,56,42,38), roi_back=(888,49,100,100), threshold=0.8, method="Template matching", file="./tasks/BondlingFairyland/stone/stone_stone_close.png")
-
 

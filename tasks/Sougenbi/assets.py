@@ -40,10 +40,9 @@ class SougenbiAssets:
 
 	# Ocr Rule Assets
 	# 贪-票数 
-	O_S_GREED = RuleOcr(roi=(589,13,84,34), area=(589,13,84,34), mode="Digit", method="Default", keyword="", name="s_greed")
+	O_S_GREED = RuleOcr(roi=(590,20,84,34), area=(590,20,84,34), mode="Digit", method="Default", keyword="", name="s_greed")
 	# 嗔-票数 
-	O_S_ANGER = RuleOcr(roi=(770,12,84,36), area=(770,12,84,36), mode="Digit", method="Default", keyword="", name="s_anger")
+	O_S_ANGER = RuleOcr(roi=(770,18,84,36), area=(770,18,84,36), mode="Digit", method="Default", keyword="", name="s_anger")
 	# 痴-票数 
-	O_S_FOOLERY = RuleOcr(roi=(951,12,86,34), area=(951,12,86,34), mode="Digit", method="Default", keyword="", name="s_foolery")
-
+	O_S_FOOLERY = RuleOcr(roi=(944,18,86,34), area=(944,18,86,34), mode="Digit", method="Default", keyword="", name="s_foolery")
 

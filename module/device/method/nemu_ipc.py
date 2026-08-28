@@ -43,6 +43,18 @@ class CaptureStd:
     def __init__(self):
         self.stdout = b''
         self.stderr = b''
+        self._capture_enabled = False
+
+    @staticmethod
+    def _stream_fileno(stream):
+        """Return a usable file descriptor for console-backed streams."""
+        if stream is None:
+            return None
+        try:
+            fileno = stream.fileno()
+        except (AttributeError, OSError, ValueError):
+            return None
+        return fileno if isinstance(fileno, int) and fileno >= 0 else None
 
     def _redirect_stdout(self, to):
         sys.stdout.close()
@@ -55,8 +67,11 @@ class CaptureStd:
         sys.stderr = os.fdopen(self.fderr, 'w')
 
     def __enter__(self):
-        self.fdout = sys.stdout.fileno()
-        self.fderr = sys.stderr.fileno()
+        self.fdout = self._stream_fileno(sys.stdout)
+        self.fderr = self._stream_fileno(sys.stderr)
+        if self.fdout is None or self.fderr is None:
+            return self
+
         self.reader_out, self.writer_out = os.pipe()
         self.reader_err, self.writer_err = os.pipe()
         self.old_stdout = os.dup(self.fdout)
@@ -66,9 +81,13 @@ class CaptureStd:
         file_err = os.fdopen(self.writer_err, 'w')
         self._redirect_stdout(to=file_out.fileno())
         self._redirect_stderr(to=file_err.fileno())
+        self._capture_enabled = True
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        if not self._capture_enabled:
+            return
+
         self._redirect_stdout(to=self.old_stdout)
         self._redirect_stderr(to=self.old_stderr)
         os.close(self.old_stdout)
