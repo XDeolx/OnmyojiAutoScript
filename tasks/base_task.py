@@ -29,6 +29,9 @@ from typing import Union
 
 
 class BaseTask(GlobalGameAssets, CostumeBase):
+    # 子任务可覆写该区间，为点击动作增加识别后的反应时间。
+    CLICK_REACTION_DELAY: tuple[float, float] | float | None = None
+
     config: Config = None
     device: Device = None
 
@@ -231,17 +234,23 @@ class BaseTask(GlobalGameAssets, CostumeBase):
                           action: Union[RuleClick, RuleLongClick] = None,
                           interval: float = None,
                           threshold: float = None,
-                          duration: float = None):
+                          duration: float = None,
+                          reaction_delay: tuple[float, float] | float | None = None):
         """
         出现了就点击，默认点击图片的位置，如果添加了click参数，就点击click的位置
         :param duration: 如果是长按，可以手动指定duration，不指定默认.单位是ms！！！！
         :param action: 可以是RuleClick, 也可以是RuleLongClick
         :param target: 可以是RuleImage后续支持RuleOcr
         :param interval:
+        :param reaction_delay: 识别成功后、点击前的反应时间或浮动区间
         :param threshold:
         :return: True or False
         """
         appear = self.appear(target, interval=interval, threshold=threshold)
+        if appear:
+            self._wait_click_reaction(reaction_delay)
+            self.device.screenshot()
+            appear = self.appear(target, threshold=threshold)
         if appear and not action:
             x, y = target.coord()
             self.device.click(x, y, control_name=target.name)
@@ -257,6 +266,17 @@ class BaseTask(GlobalGameAssets, CostumeBase):
                 self.device.click(x, y, control_name=target.name)
 
         return appear
+
+    def _wait_click_reaction(self, reaction_delay: tuple[float, float] | float | None = None) -> None:
+        """按任务声明的区间等待一次点击反应时间。"""
+        delay = self.CLICK_REACTION_DELAY if reaction_delay is None else reaction_delay
+        if delay is None:
+            return
+        if isinstance(delay, tuple):
+            low, high = delay
+            delay = random.uniform(min(low, high), max(low, high))
+        if delay > 0:
+            sleep(delay)
 
     def wait_until_appear(self,
                           target: RuleImage | RuleOcr,
@@ -457,11 +477,13 @@ class BaseTask(GlobalGameAssets, CostumeBase):
             self.interval_timer[swipe.name].reset()
         return True
 
-    def click(self, click: Union[RuleClick, RuleLongClick, RuleImage, RuleOcr] = None, interval: float = None) -> bool:
+    def click(self, click: Union[RuleClick, RuleLongClick, RuleImage, RuleOcr] = None, interval: float = None,
+              reaction_delay: tuple[float, float] | float | None = None) -> bool:
         """
         点击或者长按
         :param interval:
         :param click:
+        :param reaction_delay: 执行点击前的反应时间或浮动区间
         :return: 返回值不是click是否成功，而是interval是否设置以及是否到时间
         """
         if not click:
@@ -479,6 +501,7 @@ class BaseTask(GlobalGameAssets, CostumeBase):
             if not self.interval_timer[click.name].reached():
                 return False
 
+        self._wait_click_reaction(reaction_delay)
         x, y = click.coord()
         if isinstance(click, RuleLongClick):
             self.device.long_click(x=x, y=y, duration=click.duration / 1000, control_name=click.name)

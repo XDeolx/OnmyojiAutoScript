@@ -64,6 +64,11 @@ area_map = (
     }
 )
 
+TOPPA_POPUP_CLICK_LIMIT = 2
+TOPPA_FIRE_CLICK_LIMIT = 2
+TOPPA_POPUP_WAIT_TIMEOUT = 3.0
+TOPPA_BATTLE_WAIT_TIMEOUT = 5.0
+
 
 def random_delay(min_value: float = 1.0, max_value: float = 2.0, decimal: int = 1):
     """
@@ -75,6 +80,9 @@ def random_delay(min_value: float = 1.0, max_value: float = 2.0, decimal: int = 
 
 class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RyouToppaAssets):
     medal_grid: ImageGrid = None
+    CLICK_REACTION_DELAY = (0.18, 0.22)
+    PREPARE_CLICK_DELAY_RANGE = (2.5, 3.5)
+    SETTLEMENT_CLICK_INTERVAL_RANGE = (0.65, 0.95)
 
     def run(self):
         """
@@ -274,7 +282,12 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RyouToppaAssets):
             p1 = (safe_pos_x, safe_pos_y)
             p2 = (safe_pos_x, safe_pos_y - 101)
             logger.info('Swipe %s -> %s, %s ' % (point2str(*p1), point2str(*p2), duration))
-            self.device.swipe_adb(p1, p2, duration=duration)
+            self.device.swipe(
+                p1,
+                p2,
+                duration=duration,
+                control_name='RYOU_TOPPA_REFRESH',
+            )
             time.sleep(2)
 
     def attack_area(self, index: int):
@@ -290,23 +303,52 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RyouToppaAssets):
             time.sleep(delay)
         rcl = area_map[index].get("rule_click")
         # 塔塔开！
-        enter_click_count = 0
+        popup_click_count = 0
+        fire_click_count = 0
+        popup_wait_timer = None
+        battle_wait_timer = None
         self.device.click_record_clear()
         while True:
             self.screenshot()
             if self.is_in_battle(False):
                 logger.info("Start attach area [%s]" % str(index + 1))
                 return self.run_general_battle(config=self.config.ryou_toppa.general_battle_config)
-            # 每次点击后都会先在下一轮截图确认是否已进入战斗；第三次
-            # 点击后仍未进入，通常表示该结界已经被其他寮友抢先挑战。
-            if enter_click_count >= 3:
-                logger.warning('挑战进入次数过多，可能已被击破')
-                return False
-            if self.appear_then_click(RealmRaidAssets.I_FIRE, interval=2, threshold=0.8):
-                enter_click_count += 1
+
+            # 点击挑战按钮后只等待进入战斗，不在过渡期间重新点击结界区域。
+            if battle_wait_timer is not None:
+                if not battle_wait_timer.reached():
+                    continue
+                battle_wait_timer = None
+                if fire_click_count >= TOPPA_FIRE_CLICK_LIMIT:
+                    logger.warning('挑战按钮点击次数过多，可能已被击破')
+                    return False
+                if not self.appear(RealmRaidAssets.I_FIRE, threshold=0.8):
+                    logger.warning('挑战按钮已消失但未识别到战斗，停止重复点击')
+                    return False
+
+            # 浮窗已出现时只处理挑战按钮；结界卡片与挑战按钮分别计数。
+            if self.appear(RealmRaidAssets.I_FIRE, threshold=0.8):
+                popup_wait_timer = None
+                if fire_click_count >= TOPPA_FIRE_CLICK_LIMIT:
+                    logger.warning('挑战按钮点击次数过多，可能已被击破')
+                    return False
+                if self.appear_then_click(RealmRaidAssets.I_FIRE, interval=2, threshold=0.8):
+                    fire_click_count += 1
+                    battle_wait_timer = Timer(TOPPA_BATTLE_WAIT_TIMEOUT).start()
                 continue
+
+            # 每次点击结界后给浮窗留出稳定出现时间；超时后才允许下一次点击。
+            if popup_wait_timer is not None:
+                if not popup_wait_timer.reached():
+                    continue
+                popup_wait_timer = None
+
+            if popup_click_count >= TOPPA_POPUP_CLICK_LIMIT:
+                logger.warning('挑战浮窗打开失败，可能已被击破')
+                return False
             if self.click(rcl, interval=5):
-                enter_click_count += 1
+                popup_click_count += 1
+                popup_wait_timer = Timer(TOPPA_POPUP_WAIT_TIMEOUT).start()
                 continue
 
 
