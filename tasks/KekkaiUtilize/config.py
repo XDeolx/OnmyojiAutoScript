@@ -3,7 +3,7 @@
 # github https://github.com/runhey
 from pydantic import BaseModel, Field
 from enum import Enum
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 
 from tasks.Component.config_scheduler import Scheduler
 from tasks.Component.config_base import ConfigBase, TimeDelta
@@ -32,6 +32,7 @@ class UtilizeConfig(BaseModel):
     auto_fill: bool = Field(default=False, description='auto_fill_help')
     shikigami_class: ShikigamiClass = Field(default=ShikigamiClass.N, description='shikigami_class_help')
     shikigami_order: int = Field(default=4, description='shikigami_order_help')
+    min_run_interval: TimeDelta = Field(default=timedelta(0), description='min_run_interval_help')
     utilize_harvest: bool = Field(default=True, description='utilize_harvest_help')
     utilize_enable: bool = Field(default=True, description='utilize_enable_help')
     lazy_mode: bool = Field(default=False, description='lazy_mode_help')

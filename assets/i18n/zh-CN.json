@@ -239,5 +239,7 @@
   "group_name": "预设组名称",
   "preset_name": "预设名称",
   "custom_preset_enable": "启用自定义配置上阵预设",
-  "custom_preset": "自定义配置上阵预设"
+  "custom_preset": "自定义配置上阵预设",
+  "min_run_interval": "蹭卡最小运行间隔",
+  "min_run_interval_help": "两次结界蹭卡之间的最小间隔，避免运行过于频繁。设为 0 保持按结界卡剩余时间安排下次运行。格式：天 时:分:秒。"
 }

@@ -48,6 +48,18 @@ class ScriptTask(GameUi, ReplaceShikigami, KekkaiUtilizeAssets):
         CardClass.FISH6: ('斗鱼', 6, 151),
     }
 
+    @staticmethod
+    def _next_utilize_run_time(
+        remaining_time: timedelta,
+        min_run_interval: timedelta,
+        now: datetime | None = None,
+    ) -> datetime:
+        now = now or datetime.now()
+        next_time = now + remaining_time
+        if min_run_interval and min_run_interval.total_seconds() > 0:
+            next_time = max(next_time, now + min_run_interval)
+        return next_time
+
     def run(self):
         con = self.config.kekkai_utilize.utilize_config
         self.utilize_add_count = 0
@@ -168,7 +180,10 @@ class ScriptTask(GameUi, ReplaceShikigami, KekkaiUtilizeAssets):
                 logger.info(f'Utilize remaining time: {remaining_time}')
                 # 已经蹭上卡了，设置下次蹭卡时间  # 减少30秒
                 # remaining_time = remaining_time - timedelta(seconds=30)
-                next_time = datetime.now() + remaining_time
+                next_time = self._next_utilize_run_time(
+                    remaining_time,
+                    con.min_run_interval,
+                )
                 self.set_next_run(task='KekkaiUtilize', target=next_time)
                 return True
             if not self.goto_page(page_guild_realm_utilize):
