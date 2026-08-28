@@ -170,11 +170,11 @@ class ScriptTask(GameUi, WeeklyTriflesAssets):
         def exit_amulet():
             while True:
                 self.screenshot()
-                if self.appear(self.I_BM_ENTER):
+                if self.appear(self.I_BM_ENTER, interval=0.6):
                     break
                 if self.appear_then_click(self.I_BM_CONFIRM, interval=1):
                     continue
-                self.click(random_click(ltrb=(False, False, True, False)))
+                self.click(random_click(ltrb=(False, False, True, False)), interval=1.5)
             logger.info('Exit broken amulet')
 
         logger.hr('Broken amulet')
