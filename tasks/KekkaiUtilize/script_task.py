@@ -62,7 +62,7 @@ class ScriptTask(GameUi, ReplaceShikigami, KekkaiUtilizeAssets):
         now = now or datetime.now()
         next_time = now + remaining_time
         if min_run_interval and min_run_interval.total_seconds() > 0:
-            next_time = max(next_time, now + min_run_interval)
+            next_time += min_run_interval
         return next_time
 
     def run(self):
@@ -190,6 +190,7 @@ class ScriptTask(GameUi, ReplaceShikigami, KekkaiUtilizeAssets):
                     remaining_time,
                     con.min_run_interval,
                 )
+                logger.info(f'Utilize rest interval: {con.min_run_interval}')
                 self.set_next_run(task='KekkaiUtilize', target=next_time)
                 return True
             if not self.goto_page(page_guild_realm_utilize):
