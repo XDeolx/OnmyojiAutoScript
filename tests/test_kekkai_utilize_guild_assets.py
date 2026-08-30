@@ -44,6 +44,20 @@ class KekkaiUtilizeGuildAssetsTest(unittest.TestCase):
         self.assertEqual(task._settle_guild_reward.call_count, 2)
         task.device.click_record_clear.assert_called_once_with()
 
+    def test_reward_collection_is_independent_from_lottery_switch(self):
+        task = self._task()
+        task.collect_visible_guild_rewards = Mock(return_value=True)
+        task.collect_visible_guild_lottery = Mock(return_value=True)
+
+        self.assertTrue(
+            task.collect_visible_guild_assets(guild_lottery_enable=False)
+        )
+
+        task.collect_visible_guild_rewards.assert_called_once_with(
+            random_wait_enable=False,
+        )
+        task.collect_visible_guild_lottery.assert_not_called()
+
     def test_guild_lottery_is_optional_and_defaults_to_disabled(self):
         self.assertFalse(UtilizeConfig().guild_lottery_enable)
         task = self._task()

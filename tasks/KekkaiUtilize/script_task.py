@@ -128,8 +128,8 @@ class ScriptTask(GameUi, ReplaceShikigami, KekkaiUtilizeAssets):
             random_wait_enable=random_wait_enable,
         )
         logger.info(
-            '顺手处理寮资金/体力/抽奖: '
-            f'collected={collected}, lottery={guild_lottery_enable}'
+            '寮主页收尾完成: '
+            f'handled={collected}, lottery_enabled={guild_lottery_enable}'
         )
         return collected
 
@@ -164,7 +164,26 @@ class ScriptTask(GameUi, ReplaceShikigami, KekkaiUtilizeAssets):
         guild_lottery_enable: bool = False,
         random_wait_enable: bool = False,
     ) -> bool:
-        """单次处理当前寮主页上可见的资金、体力及可选抽奖。"""
+        """固定收取当前可见奖励，并按配置选择是否进行寮抽奖。"""
+        reward_collected = self.collect_visible_guild_rewards(
+            random_wait_enable=random_wait_enable,
+        )
+        lottery_drew = False
+        if guild_lottery_enable:
+            lottery_drew = self.collect_visible_guild_lottery(
+                random_wait_enable=random_wait_enable,
+            )
+        logger.info(
+            '寮抽奖: '
+            f'enabled={guild_lottery_enable}, drew={lottery_drew}'
+        )
+        return reward_collected or lottery_drew
+
+    def collect_visible_guild_rewards(
+        self,
+        random_wait_enable: bool = False,
+    ) -> bool:
+        """顺手收取寮主页当前可见的资金和体力，不受抽奖开关影响。"""
         collected = False
         self.screenshot()
         if self.appear_then_click(self.I_GUILD_EXPAND):
@@ -186,17 +205,22 @@ class ScriptTask(GameUi, ReplaceShikigami, KekkaiUtilizeAssets):
             self.device.click_record_clear()
             self._guild_reward_random_wait(random_wait_enable, '寮体力完成')
 
-        if guild_lottery_enable:
-            self.screenshot()
-            if self.appear(self.I_GUILD_LOTTERY, interval=0.5):
-                self._guild_reward_random_wait(random_wait_enable, '寮抽奖前')
-                if self.guild_lottery(random_wait_enable=random_wait_enable):
-                    collected = True
-                    self._guild_reward_random_wait(
-                        random_wait_enable,
-                        '寮抽奖完成',
-                    )
+        logger.info(f'顺手收取寮资金/体力: collected={collected}')
         return collected
+
+    def collect_visible_guild_lottery(
+        self,
+        random_wait_enable: bool = False,
+    ) -> bool:
+        """仅在抽奖开关开启时处理当前可见的寮抽奖。"""
+        self.screenshot()
+        if not self.appear(self.I_GUILD_LOTTERY, interval=0.5):
+            return False
+        self._guild_reward_random_wait(random_wait_enable, '寮抽奖前')
+        drew = self.guild_lottery(random_wait_enable=random_wait_enable)
+        if drew:
+            self._guild_reward_random_wait(random_wait_enable, '寮抽奖完成')
+        return drew
 
     def guild_lottery(self, random_wait_enable: bool = False) -> bool:
         """执行当前可见的寮抽奖，并在完成后返回寮主页。"""
