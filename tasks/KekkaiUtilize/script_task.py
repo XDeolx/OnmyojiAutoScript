@@ -52,6 +52,7 @@ class ScriptTask(GameUi, ReplaceShikigami, KekkaiUtilizeAssets):
         '太鼓': 76,
         '斗鱼': 151,
     }
+    GUILD_REWARD_WAIT_RANGE = (2.0, 4.0)
 
     @staticmethod
     def _next_utilize_run_time(
@@ -105,19 +106,44 @@ class ScriptTask(GameUi, ReplaceShikigami, KekkaiUtilizeAssets):
         # 收体力盒子或者是经验盒子
         self.check_box_ap_or_exp(con.box_ap_enable, con.box_exp_enable, con.box_exp_waste)
 
-        # 返回庭院本来就会经过寮主页，只顺手收取当前可见的寮资金和体力。
-        self.receive_guild_assets()
+        # 返回庭院本来就会经过寮主页，只顺手处理当前可见的寮奖励。
+        self.receive_guild_assets(
+            guild_lottery_enable=con.guild_lottery_enable,
+            random_wait_enable=con.guild_reward_random_wait,
+        )
         if not con.utilize_enable:
             self.set_next_run(task='KekkaiUtilize', finish=True, success=True)
         self.goto_page(page_main)
         raise TaskEnd
 
-    def receive_guild_assets(self) -> bool:
-        """退出结界时经过寮主页，单次顺手收取资金和体力。"""
+    def receive_guild_assets(
+        self,
+        guild_lottery_enable: bool = False,
+        random_wait_enable: bool = False,
+    ) -> bool:
+        """退出结界时经过寮主页，单次顺手处理可见奖励。"""
         self.goto_page(page_guild)
-        collected = self.collect_visible_guild_assets()
-        logger.info(f'顺手收取寮资金/体力: {collected}')
+        collected = self.collect_visible_guild_assets(
+            guild_lottery_enable=guild_lottery_enable,
+            random_wait_enable=random_wait_enable,
+        )
+        logger.info(
+            '顺手处理寮资金/体力/抽奖: '
+            f'collected={collected}, lottery={guild_lottery_enable}'
+        )
         return collected
+
+    def _guild_reward_random_wait(
+        self,
+        enabled: bool,
+        stage: str,
+    ) -> float:
+        if not enabled:
+            return 0.0
+        delay = random.uniform(*self.GUILD_REWARD_WAIT_RANGE)
+        logger.info(f'寮奖励随机等待: stage={stage}, delay={delay:.2f}s')
+        time.sleep(delay)
+        return delay
 
     def _settle_guild_reward(self, allow_assets_confirm: bool = False) -> None:
         """仅在已经点击奖励后处理确认框和奖励弹窗。"""
@@ -133,8 +159,12 @@ class ScriptTask(GameUi, ReplaceShikigami, KekkaiUtilizeAssets):
             if self.ui_reward_appear_click():
                 return
 
-    def collect_visible_guild_assets(self) -> bool:
-        """单次处理当前寮主页上可见的资金和体力，不进入寮抽奖。"""
+    def collect_visible_guild_assets(
+        self,
+        guild_lottery_enable: bool = False,
+        random_wait_enable: bool = False,
+    ) -> bool:
+        """单次处理当前寮主页上可见的资金、体力及可选抽奖。"""
         collected = False
         self.screenshot()
         if self.appear_then_click(self.I_GUILD_EXPAND):
@@ -147,13 +177,67 @@ class ScriptTask(GameUi, ReplaceShikigami, KekkaiUtilizeAssets):
         ):
             collected = True
             self._settle_guild_reward(allow_assets_confirm=True)
+            self._guild_reward_random_wait(random_wait_enable, '寮资金完成')
             self.screenshot()
 
         if self.appear_then_click(self.I_GUILD_AP, interval=0.5):
             collected = True
             self._settle_guild_reward()
             self.device.click_record_clear()
+            self._guild_reward_random_wait(random_wait_enable, '寮体力完成')
+
+        if guild_lottery_enable:
+            self.screenshot()
+            if self.appear(self.I_GUILD_LOTTERY, interval=0.5):
+                self._guild_reward_random_wait(random_wait_enable, '寮抽奖前')
+                if self.guild_lottery(random_wait_enable=random_wait_enable):
+                    collected = True
+                    self._guild_reward_random_wait(
+                        random_wait_enable,
+                        '寮抽奖完成',
+                    )
         return collected
+
+    def guild_lottery(self, random_wait_enable: bool = False) -> bool:
+        """执行当前可见的寮抽奖，并在完成后返回寮主页。"""
+        entered = self.ui_click_until_appear_or_timeout(
+            self.I_GUILD_LOTTERY,
+            self.I_CHECK_GUILD_LOTTERY,
+            interval=1.5,
+            timeout=7,
+        )
+        if not entered:
+            logger.warning('进入寮抽奖页面失败')
+            return False
+
+        drew = False
+        idle_timer = Timer(4).start()
+        hard_timeout = Timer(30).start()
+        while not idle_timer.reached() and not hard_timeout.reached():
+            self.screenshot()
+            if self.ui_reward_appear_click():
+                drew = True
+                idle_timer.reset()
+                continue
+            if self.appear(self.I_GUILD_LOTTERY_SPECIAL_REWARD, interval=1):
+                self.click(self.C_UI_REWARD)
+                drew = True
+                idle_timer.reset()
+                continue
+            if self.appear(self.I_KU_CHECK_CAN_LOTTERY, interval=1):
+                self._guild_reward_random_wait(
+                    random_wait_enable,
+                    '寮抽奖操作前',
+                )
+                self.swipe(self.S_GUILD_LOTTERY)
+                drew = True
+                idle_timer.reset()
+                continue
+
+        self.appear_then_click(self.I_UI_BACK_YELLOW)
+        self.device.click_record_clear()
+        logger.info(f'寮抽奖结束: drew={drew}')
+        return drew
 
     def check_utilize_add(self):
         con = self.config.kekkai_utilize.utilize_config
@@ -626,22 +710,8 @@ class ScriptTask(GameUi, ReplaceShikigami, KekkaiUtilizeAssets):
         self.utilize_entered_failed_count = 0
         return True
 
-    def _lazy_card_matches_rule(
-        self,
-        card_class: CardClass,
-        *,
-        minimum_star: int = 5,
-        maximum_star: int | None = None,
-    ) -> bool:
-        """判断资源卡是否符合怠惰策略及指定星级范围。"""
-        tier_info = self.CARD_TIER_INFO.get(card_class)
-        if not tier_info:
-            return False
-        card_type, star, _ = tier_info
-        if star < minimum_star:
-            return False
-        if maximum_star is not None and star > maximum_star:
-            return False
+    def _resource_type_matches_rule(self, card_type: str) -> bool:
+        """以详情页 OCR 得到的资源类型判断是否符合当前策略。"""
         rule = self.config.kekkai_utilize.utilize_config.utilize_rule
         if rule == UtilizeRule.TAIKO:
             return card_type == '太鼓'
@@ -652,6 +722,18 @@ class ScriptTask(GameUi, ReplaceShikigami, KekkaiUtilizeAssets):
         logger.error('Unknown utilize rule')
         raise ValueError('Unknown utilize rule')
 
+    @staticmethod
+    def _resource_reward_star(card_type: str, card_value: int) -> int | None:
+        """按实际奖励范围推断星级，避免把模板误判当作真实星级。"""
+        ranges = {
+            '太鼓': ((4, 50, 59), (5, 59, 67), (6, 67, 76)),
+            '斗鱼': ((4, 101, 118), (5, 118, 134), (6, 134, 151)),
+        }
+        for star, minimum, maximum in ranges.get(card_type, ()):
+            if minimum <= card_value <= maximum:
+                return star
+        return None
+
     def _select_lazy_resource_card(
         self,
         friend: SelectFriendList,
@@ -661,7 +743,7 @@ class ScriptTask(GameUi, ReplaceShikigami, KekkaiUtilizeAssets):
         consecutive_miss_limit = 3
         timeout = Timer(120).start()
         miss_count = 0
-        found_four_star = False
+        four_star_candidate: tuple[str, int] | None = None
         self.utilize_current_group_has_eligible_card = False
         self.utilize_current_group_scan_completed = False
 
@@ -677,39 +759,33 @@ class ScriptTask(GameUi, ReplaceShikigami, KekkaiUtilizeAssets):
                 frame_id=self.device.image_frame_id,
             )
             cards = self._deduplicate_card_matches(raw_cards)
-            eligible_cards = []
             if cards:
-                for card in cards:
-                    target, _, _, _ = card
-                    card_class = target_to_card_class(target)
-                    if self._lazy_card_matches_rule(
-                        card_class,
-                        minimum_star=4,
-                        maximum_star=4,
+                for _, _, area, _ in cards:
+                    self.C_SELECT_CARD.roi_front = area
+                    self.click(self.C_SELECT_CARD)
+                    time.sleep(2)
+                    card_type, card_value = self.check_card_num()
+                    star = self._resource_reward_star(card_type, card_value)
+                    logger.info(
+                        '怠惰模式 OCR 候选: '
+                        f'{card_type}@{card_value}, star={star}, area={area}'
+                    )
+                    if (
+                        star is None
+                        or not self._resource_type_matches_rule(card_type)
                     ):
-                        found_four_star = True
-                        self.utilize_found_eligible_card = True
-                        self.utilize_current_group_has_eligible_card = True
-                    if self._lazy_card_matches_rule(
-                        card_class,
-                        minimum_star=5,
-                    ):
-                        eligible_cards.append(card)
+                        continue
 
-            if eligible_cards:
-                self.utilize_found_eligible_card = True
-                self.utilize_current_group_has_eligible_card = True
-                target, _, area, _ = eligible_cards[0]
-                card_class = target_to_card_class(target)
-                card_type, star, _ = self.CARD_TIER_INFO[card_class]
-                self.C_SELECT_CARD.roi_front = area
-                self.click(self.C_SELECT_CARD)
-                time.sleep(2)
-                logger.info(
-                    f'怠惰模式已选择首个符合策略的{star}星{card_type}: '
-                    f'swipe={swipe_count}, area={area}'
-                )
-                return True
+                    self.utilize_found_eligible_card = True
+                    self.utilize_current_group_has_eligible_card = True
+                    if star >= 5:
+                        logger.info(
+                            f'怠惰模式已选择首个 OCR 确认的'
+                            f'{star}星{card_type}@{card_value}'
+                        )
+                        return True
+                    if four_star_candidate is None:
+                        four_star_candidate = (card_type, card_value)
 
             # 当前屏即使只有四星卡或另一策略资源卡，也说明仍位于
             # 有效卡区域，需要继续向下寻找，不能计入连续空屏。
@@ -735,7 +811,7 @@ class ScriptTask(GameUi, ReplaceShikigami, KekkaiUtilizeAssets):
                 f'怠惰模式已按最大滑动次数{max_swipes}完成当前分组扫描'
             )
 
-        if not found_four_star:
+        if four_star_candidate is None:
             logger.info('当前优先分组没有符合策略的五星或四星结界卡')
             return None
 
@@ -744,59 +820,9 @@ class ScriptTask(GameUi, ReplaceShikigami, KekkaiUtilizeAssets):
             '复位列表并回退选择四星卡'
         )
         self._reset_utilize_friend_list(friend)
-        if self._locate_lazy_four_star_card():
+        if self._locate_recorded_resource_card(*four_star_candidate):
             return True
         logger.warning('已发现四星目标，但复位后重新定位失败')
-        return False
-
-    def _locate_lazy_four_star_card(self) -> bool:
-        """从当前好友分组顶部选择首张符合怠惰策略的四星卡。"""
-        max_swipes = 20
-        consecutive_miss_limit = 3
-        timeout = Timer(120).start()
-        miss_count = 0
-
-        logger.hr('怠惰模式回退选择四星结界卡', 2)
-        for swipe_count in range(max_swipes + 1):
-            if timeout.reached():
-                logger.warning('怠惰模式重新定位四星卡超时')
-                return False
-
-            self.screenshot()
-            raw_cards = self.lazy_scan_targets.find_everyone(
-                self.device.image,
-                frame_id=self.device.image_frame_id,
-            )
-            cards = self._deduplicate_card_matches(raw_cards)
-            if cards:
-                for target, _, area, _ in cards:
-                    card_class = target_to_card_class(target)
-                    if not self._lazy_card_matches_rule(
-                        card_class,
-                        minimum_star=4,
-                        maximum_star=4,
-                    ):
-                        continue
-                    card_type, star, _ = self.CARD_TIER_INFO[card_class]
-                    self.C_SELECT_CARD.roi_front = area
-                    self.click(self.C_SELECT_CARD)
-                    time.sleep(2)
-                    logger.info(
-                        f'怠惰模式已回退选择{star}星{card_type}: '
-                        f'swipe={swipe_count}, area={area}'
-                    )
-                    return True
-                miss_count = 0
-            else:
-                miss_count += 1
-
-            if (
-                self.appear(self.I_U_EMPTY_CARD)
-                or miss_count > consecutive_miss_limit
-            ):
-                return False
-            self.perform_swipe_action()
-
         return False
 
     def _select_optimal_resource_card(
@@ -891,13 +917,7 @@ class ScriptTask(GameUi, ReplaceShikigami, KekkaiUtilizeAssets):
                 continue
 
             miss_count = 0
-            for target, _, area, _ in cards:
-                tier_info = self.CARD_TIER_INFO.get(
-                    target_to_card_class(target)
-                )
-                if tier_info and tier_info[0] != best_card_type:
-                    continue
-
+            for _, _, area, _ in cards:
                 self.C_SELECT_CARD.roi_front = area
                 self.click(self.C_SELECT_CARD)
                 time.sleep(2)
@@ -955,12 +975,6 @@ class ScriptTask(GameUi, ReplaceShikigami, KekkaiUtilizeAssets):
         logger.info('启动结界卡浏览选择')
         timer = Timer(TIMEOUT).start()
         miss_count = 0  # 连续无卡计数器
-        maxed_card_classes: set[CardClass] = set()
-        # 每种资源已经实际打开并确认过奖励的最高星级。更低星级的
-        # 理论上限不会超过更高星级，因此后续无需再打开确认；同星级
-        # 仍由 maxed_card_classes 判断是否已经达到该档最高奖励。
-        confirmed_highest_stars: dict[str, int] = {}
-
         # ============== 主滑动循环 ==============#
         for swipe_count in range(MAX_SWIPES + 1):
             # 超时检测
@@ -999,34 +1013,7 @@ class ScriptTask(GameUi, ReplaceShikigami, KekkaiUtilizeAssets):
             logger.info((f'第{swipe_count}次滑动' if swipe_count > 0 else '初始界面') + f' | 检测到结界卡：{cards_list}')
 
             # 遍历所有结界卡（已按位置排序）
-            for target, _, area, _ in cards:
-                card_class = target_to_card_class(target)
-                tier_info = self.CARD_TIER_INFO.get(card_class)
-                if tier_info:
-                    self.utilize_found_eligible_card = True
-                    self.utilize_current_group_has_eligible_card = True
-
-                if card_class in maxed_card_classes:
-                    card_type, star, tier_max = tier_info
-                    logger.info(
-                        f'⏭️ {star}星{card_type}已确认最高奖励{tier_max}，'
-                        '本轮不再点击同档卡片'
-                    )
-                    continue
-
-                if tier_info:
-                    card_type, star, _ = tier_info
-                    confirmed_star = confirmed_highest_stars.get(
-                        card_type,
-                        0,
-                    )
-                    if star < confirmed_star:
-                        logger.info(
-                            f'⏭️ 已确认{confirmed_star}星{card_type}奖励，'
-                            f'不再向下确认{star}星{card_type}'
-                        )
-                        continue
-
+            for _, _, area, _ in cards:
                 # 设置点击区域并获取结界卡详情
                 self.C_SELECT_CARD.roi_front = area
                 self.click(self.C_SELECT_CARD)
@@ -1036,29 +1023,20 @@ class ScriptTask(GameUi, ReplaceShikigami, KekkaiUtilizeAssets):
                 card_type, card_value = self.check_card_num()
 
                 # 跳过无效结界卡（类型未知或数值异常）
-                if card_type == 'unknown' or card_value <= 0 or card_type not in RESOURCE_CONFIG:
+                star = self._resource_reward_star(card_type, card_value)
+                if (
+                    star is None
+                    or card_type not in RESOURCE_CONFIG
+                    or not self._resource_type_matches_rule(card_type)
+                ):
                     logger.info(f'⏭️ 跳过无效卡: {card_type}@{card_value}')
                     continue
 
-                if tier_info:
-                    tier_type, star, tier_max = tier_info
-                    if tier_type == card_type:
-                        previous_star = confirmed_highest_stars.get(
-                            card_type,
-                            0,
-                        )
-                        if star > previous_star:
-                            confirmed_highest_stars[card_type] = star
-                            logger.info(
-                                f'✅ 已确认{star}星{card_type}奖励，'
-                                f'后续跳过{star}星以下同类型卡片'
-                            )
-                        if card_value >= tier_max:
-                            maxed_card_classes.add(card_class)
-                            logger.info(
-                                f'✅ {star}星{card_type}达到当前档位最高奖励: '
-                                f'{card_value}（标准{tier_max}）'
-                            )
+                self.utilize_found_eligible_card = True
+                self.utilize_current_group_has_eligible_card = True
+                logger.info(
+                    f'✅ OCR 确认{star}星{card_type}奖励: {card_value}'
+                )
 
                 # ====== 模式分支处理 ======#
                 record_attr = RESOURCE_CONFIG[card_type]['record_attr']

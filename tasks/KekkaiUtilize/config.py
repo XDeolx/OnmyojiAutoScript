@@ -33,6 +33,8 @@ class UtilizeConfig(BaseModel):
     shikigami_class: ShikigamiClass = Field(default=ShikigamiClass.N, description='shikigami_class_help')
     shikigami_order: int = Field(default=4, description='shikigami_order_help')
     min_run_interval: TimeDelta = Field(default=timedelta(0), description='min_run_interval_help')
+    guild_lottery_enable: bool = Field(default=False, description='guild_lottery_enable_help')
+    guild_reward_random_wait: bool = Field(default=False, description='guild_reward_random_wait_help')
     utilize_harvest: bool = Field(default=True, description='utilize_harvest_help')
     utilize_enable: bool = Field(default=True, description='utilize_enable_help')
     lazy_mode: bool = Field(default=False, description='lazy_mode_help')

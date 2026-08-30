@@ -67,6 +67,62 @@ class KekkaiUtilizeSelectionTest(unittest.TestCase):
         self.assertFalse(task._is_strategy_maximum_reward('斗鱼', 151))
         self.assertFalse(task._is_strategy_maximum_reward('太鼓', 75))
 
+    def test_reward_value_overrides_incorrect_star_template(self):
+        self.assertIsNone(ScriptTask._resource_reward_star('斗鱼', 84))
+        self.assertEqual(ScriptTask._resource_reward_star('斗鱼', 118), 4)
+        self.assertEqual(ScriptTask._resource_reward_star('斗鱼', 134), 5)
+        self.assertEqual(ScriptTask._resource_reward_star('斗鱼', 151), 6)
+        self.assertEqual(ScriptTask._resource_reward_star('太鼓', 59), 4)
+        self.assertEqual(ScriptTask._resource_reward_star('太鼓', 67), 5)
+        self.assertEqual(ScriptTask._resource_reward_star('太鼓', 76), 6)
+
+    def test_relocation_uses_ocr_even_when_template_type_is_wrong(self):
+        task = self._task()
+        area = (100, 200, 80, 40)
+        task.screenshot = Mock()
+        task.device = SimpleNamespace(image=object(), image_frame_id=1)
+        task.order_targets = SimpleNamespace(find_everyone=Mock())
+        task._deduplicate_card_matches = Mock(
+            return_value=[(task.I_U_TAIKO_6, 0.95, area, ())]
+        )
+        task.click = Mock()
+        task.check_card_num = Mock(return_value=('斗鱼', 143))
+        task.appear = Mock(return_value=False)
+        task.perform_swipe_action = Mock()
+
+        with patch('tasks.KekkaiUtilize.script_task.time.sleep'):
+            self.assertTrue(task._locate_recorded_resource_card('斗鱼', 143))
+
+        task.click.assert_called_once()
+
+    def test_scan_does_not_skip_better_card_after_false_six_star_match(self):
+        task = self._task(UtilizeRule.FISH)
+        areas = [(100, 200, 80, 40), (100, 320, 80, 40)]
+        task.ap_max_num = 0
+        task.jade_max_num = 0
+        task.utilize_found_eligible_card = False
+        task.utilize_current_group_has_eligible_card = False
+        task.utilize_current_group_scan_completed = False
+        task.screenshot = Mock()
+        task.device = SimpleNamespace(image=object(), image_frame_id=1)
+        task.order_targets = SimpleNamespace(find_everyone=Mock())
+        task._deduplicate_card_matches = Mock(
+            return_value=[
+                (task.I_U_FISH_6, 0.95, areas[0], ()),
+                (task.I_U_FISH_6, 0.94, areas[1], ()),
+            ]
+        )
+        task.click = Mock()
+        task.check_card_num = Mock(
+            side_effect=[('斗鱼', 118), ('斗鱼', 151)]
+        )
+
+        with patch('tasks.KekkaiUtilize.script_task.time.sleep'):
+            self.assertTrue(task._current_select_best())
+
+        self.assertEqual(task.check_card_num.call_count, 2)
+        self.assertEqual(task.ap_max_num, 151)
+
     def test_entered_realm_failure_uses_separate_two_try_limit(self):
         task = self._task()
         task.utilize_failed_count = 1
