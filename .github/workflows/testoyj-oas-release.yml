@@ -65,11 +65,11 @@ jobs:
           $notes = @"
           ## testoyj OAS Windows 免安装包 $version
 
-          - 基于官方 OAS easy-install 运行环境和 `testoyj` 分支构建。
+          - 基于官方 OAS easy-install 运行环境和 testoyj 分支构建。
           - 解压到新的英文路径后，在 OASX 中选择该 OAS 目录即可使用。
           - 安装包不包含任何用户账号配置、周计划、日志或截图。
-          - 压缩包内保留浅层 `testoyj` Git 仓库，后续更新只需拉取少量增量。
-          - `.sha256` 文件可用于核对压缩包完整性。
+          - 压缩包内保留浅层 testoyj Git 仓库，后续更新只需拉取少量增量。
+          - SHA-256 文件可用于核对压缩包完整性。
           "@
           $notesPath = Join-Path $env:RUNNER_TEMP 'release-notes.md'
           Set-Content -LiteralPath $notesPath -Value $notes -Encoding utf8
