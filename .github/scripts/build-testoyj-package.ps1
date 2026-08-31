@@ -91,6 +91,17 @@ try {
 
     Copy-Directory -Source $toolkitDirectory.FullName -Destination (Join-Path $packageRoot 'toolkit')
 
+    $baseDeployPath = Join-Path $baseRoot 'config\deploy.yaml'
+    if (-not (Test-Path -LiteralPath $baseDeployPath -PathType Leaf)) {
+        throw 'The official easy-install package does not contain config\deploy.yaml'
+    }
+    $packageDeployPath = Join-Path $packageRoot 'config\deploy.yaml'
+    Copy-Item -LiteralPath $baseDeployPath -Destination $packageDeployPath -Force
+    $deployContent = Get-Content -LiteralPath $packageDeployPath -Raw
+    $deployContent = $deployContent -replace '(?m)^(\s*Repository:\s*).+$', "`${1}$RepositoryUrl"
+    $deployContent = $deployContent -replace '(?m)^(\s*Branch:\s*).+$', "`${1}$Branch"
+    Set-Content -LiteralPath $packageDeployPath -Value $deployContent -Encoding utf8
+
     foreach ($relativePath in @('oas.exe', 'console.bat', 'oas-backend.bat')) {
         $sourcePath = Join-Path $baseRoot $relativePath
         if (Test-Path -LiteralPath $sourcePath -PathType Leaf) {
@@ -116,10 +127,27 @@ try {
         Where-Object {
             ($_.Extension -in @('.ini', '.crt')) -or
             ($_.Extension -eq '.json' -and $_.BaseName -notlike 'template*') -or
-            ($_.Extension -eq '.yaml' -and $_.Name -notlike 'deploy.*.yaml')
+            ($_.Extension -eq '.yaml' -and $_.Name -ne 'deploy.yaml' -and $_.Name -notlike 'deploy.*.yaml')
         }
     if ($forbiddenFiles) {
         throw "Personal configuration files entered the package: $($forbiddenFiles.Name -join ', ')"
+    }
+
+    foreach ($requiredPath in @(
+        'config\deploy.yaml',
+        'toolkit\python.exe',
+        'toolkit\Git\mingw64\bin\git.exe',
+        'deploy\installer.py'
+    )) {
+        if (-not (Test-Path -LiteralPath (Join-Path $packageRoot $requiredPath) -PathType Leaf)) {
+            throw "OASX required file is missing from the package: $requiredPath"
+        }
+    }
+
+    $packagedDeploy = Get-Content -LiteralPath $packageDeployPath -Raw
+    if ($packagedDeploy -notmatch [regex]::Escape("Repository: $RepositoryUrl") -or
+        $packagedDeploy -notmatch [regex]::Escape("Branch: $Branch")) {
+        throw 'Packaged deploy.yaml does not target the requested repository and branch'
     }
 
     $archiveName = "OnmyojiAutoScript-testoyj-$Version-Windows.zip"

@@ -12,6 +12,7 @@
 ### Windows 免安装包
 
 - 新增 `testoyj` Windows 免安装包发布链路，使用官方 easy-install 运行环境叠加本分支最新代码。
+- 修复首版安装包缺少 `config/deploy.yaml`、导致 OASX 无法识别根目录的问题；发布前会完整检查 OASX 所需的部署配置、Python、Git 和安装器。
 - 安装包不包含用户配置、周计划、日志和截图，并保留浅层 `testoyj` Git 仓库，便于后续快速增量更新。
 - Release 同时提供 SHA-256 校验文件；首次安装或从其他分支迁移时可直接解压到新目录使用。
 
