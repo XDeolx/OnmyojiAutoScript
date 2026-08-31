@@ -31,9 +31,15 @@ class KekkaiUtilizeGuildAssetsTest(unittest.TestCase):
 
     def test_visible_collection_skips_guild_lottery(self):
         task = self._task()
+        collected_targets = set()
 
         def click_visible(target, **kwargs):
-            return target is task.I_GUILD_ASSETS or target is task.I_GUILD_AP
+            if target in (task.I_GUILD_ASSETS, task.I_GUILD_AP):
+                if target in collected_targets:
+                    return False
+                collected_targets.add(target)
+                return True
+            return False
 
         task.appear_then_click = Mock(side_effect=click_visible)
 
@@ -43,6 +49,30 @@ class KekkaiUtilizeGuildAssetsTest(unittest.TestCase):
         self.assertFalse(any(target is task.I_GUILD_LOTTERY for target in clicked_targets))
         self.assertEqual(task._settle_guild_reward.call_count, 2)
         task.device.click_record_clear.assert_called_once_with()
+
+    def test_expanded_banner_rechecks_delayed_guild_assets(self):
+        task = self._task()
+        asset_checks = 0
+
+        def click_after_expand(target, **kwargs):
+            nonlocal asset_checks
+            if target is task.I_GUILD_EXPAND:
+                return True
+            if target is task.I_GUILD_ASSETS:
+                asset_checks += 1
+                return asset_checks == 2
+            return False
+
+        task.appear_then_click = Mock(side_effect=click_after_expand)
+
+        with patch('tasks.KekkaiUtilize.script_task.time.sleep') as sleep:
+            self.assertTrue(task.collect_visible_guild_rewards())
+
+        self.assertGreaterEqual(asset_checks, 2)
+        sleep.assert_any_call(0.8)
+        task._settle_guild_reward.assert_called_once_with(
+            allow_assets_confirm=True,
+        )
 
     def test_reward_collection_is_independent_from_lottery_switch(self):
         task = self._task()

@@ -204,27 +204,53 @@ class ScriptTask(GameUi, ReplaceShikigami, KekkaiUtilizeAssets):
     ) -> bool:
         """顺手收取寮主页当前可见的资金和体力，不受抽奖开关影响。"""
         collected = False
+        empty_scans = 0
+        max_scans = 4
         self.screenshot()
         if self.appear_then_click(self.I_GUILD_EXPAND):
+            # 展开动画期间奖励图标尚未稳定，立即识别会漏掉仅有的寮资金。
+            time.sleep(0.8)
             self.screenshot()
 
-        if self.appear_then_click(
-            self.I_GUILD_ASSETS,
-            interval=0.5,
-            threshold=0.6,
-        ):
-            collected = True
-            self._settle_guild_reward(allow_assets_confirm=True)
-            self._guild_reward_random_wait(random_wait_enable, '寮资金完成')
+        for scan_index in range(1, max_scans + 1):
             self.screenshot()
+            handled_this_scan = False
 
-        if self.appear_then_click(self.I_GUILD_AP, interval=0.5):
-            collected = True
-            self._settle_guild_reward()
-            self.device.click_record_clear()
-            self._guild_reward_random_wait(random_wait_enable, '寮体力完成')
+            if self.appear_then_click(
+                self.I_GUILD_ASSETS,
+                interval=0.5,
+                threshold=0.6,
+            ):
+                collected = True
+                handled_this_scan = True
+                self._settle_guild_reward(allow_assets_confirm=True)
+                self._guild_reward_random_wait(random_wait_enable, '寮资金完成')
+                self.screenshot()
 
-        logger.info(f'顺手收取寮资金/体力: collected={collected}')
+            if self.appear_then_click(self.I_GUILD_AP, interval=0.5):
+                collected = True
+                handled_this_scan = True
+                self._settle_guild_reward()
+                self.device.click_record_clear()
+                self._guild_reward_random_wait(random_wait_enable, '寮体力完成')
+                self.screenshot()
+
+            if handled_this_scan:
+                empty_scans = 0
+                continue
+
+            empty_scans += 1
+            if empty_scans >= 2:
+                break
+            logger.info(
+                f'寮奖励暂未识别，短暂等待后复查: scan={scan_index}/{max_scans}'
+            )
+            time.sleep(0.5)
+
+        logger.info(
+            '顺手收取寮资金/体力: '
+            f'collected={collected}, scans={scan_index}'
+        )
         return collected
 
     def collect_visible_guild_lottery(
