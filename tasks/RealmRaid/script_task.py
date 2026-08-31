@@ -27,7 +27,8 @@ from module.base.timer import Timer
 
 
 REALM_RAID_FIRE_DELAY_RANGE = (2.0, 5.0)
-REALM_RAID_QUICK_EXIT_DELAY_RANGE = (2.0, 5.0)
+REALM_RAID_QUICK_EXIT_DELAY_RANGE = (1.0, 2.0)
+REALM_RAID_QUICK_EXIT_RETRY_DELAY_RANGE = (1.0, 2.0)
 
 
 def random_attack_delay(
@@ -499,6 +500,12 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RealmRaidAssets):
         :return: 是否再战成功
         """
         self.wait_until_appear(self.I_FIRE_AGAIN)
+        delay = random_attack_delay(*REALM_RAID_QUICK_EXIT_RETRY_DELAY_RANGE)
+        logger.info(
+            '个人突破退四次进入下一轮前随机等待: '
+            f'delay={delay:.1f}s'
+        )
+        time.sleep(delay)
         while True:
             self.screenshot()
             if not self.appear(self.I_FIRE_AGAIN):

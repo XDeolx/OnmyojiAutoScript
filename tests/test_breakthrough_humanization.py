@@ -6,6 +6,7 @@ from tasks.Component.GeneralBattle.general_battle import GeneralBattle
 from module.base.protect import random_delay as common_random_delay
 from tasks.RealmRaid.script_task import REALM_RAID_FIRE_DELAY_RANGE
 from tasks.RealmRaid.script_task import REALM_RAID_QUICK_EXIT_DELAY_RANGE
+from tasks.RealmRaid.script_task import REALM_RAID_QUICK_EXIT_RETRY_DELAY_RANGE
 from tasks.RealmRaid.script_task import ScriptTask as RealmRaidTask
 from tasks.RealmRaid.script_task import random_attack_delay
 from tasks.RyouToppa.script_task import TOPPA_FIRE_DELAY_RANGE
@@ -181,7 +182,7 @@ class BreakthroughHumanizationTest(unittest.TestCase):
 
         with patch(
             'tasks.RealmRaid.script_task.random_attack_delay',
-            return_value=3.7,
+            return_value=1.7,
         ) as delay, patch(
             'tasks.RealmRaid.script_task.Timer',
             return_value=delay_timer,
@@ -195,9 +196,33 @@ class BreakthroughHumanizationTest(unittest.TestCase):
             self.assertTrue(task.exit_battle())
 
         delay.assert_called_once_with(*REALM_RAID_QUICK_EXIT_DELAY_RANGE)
-        timer_class.assert_called_once_with(3.7)
+        timer_class.assert_called_once_with(1.7)
         self.assertEqual(quick_exit_timer.reset.call_count, 2)
         base_exit.assert_called_once_with(skip_first=False)
+
+    def test_realm_raid_quick_exit_waits_before_entering_next_round(self):
+        task = RealmRaidTask.__new__(RealmRaidTask)
+        task.I_FIRE_AGAIN = Mock()
+        task.I_SHOW_AGAIN = Mock()
+        task.I_FRESH_ENSURE = Mock()
+        task.wait_until_appear = Mock()
+        task.screenshot = Mock()
+        task.appear = Mock(side_effect=[True, False])
+        task.appear_then_click = Mock(side_effect=[False, False, True])
+
+        with patch(
+            'tasks.RealmRaid.script_task.random_attack_delay',
+            return_value=1.6,
+        ) as delay, patch(
+            'tasks.RealmRaid.script_task.time.sleep',
+        ) as sleep:
+            self.assertTrue(task.fire_again())
+
+        delay.assert_called_once_with(
+            *REALM_RAID_QUICK_EXIT_RETRY_DELAY_RANGE
+        )
+        sleep.assert_called_once_with(1.6)
+        task.wait_until_appear.assert_called_once_with(task.I_FIRE_AGAIN)
 
     def test_realm_raid_normal_exit_has_no_extra_delay(self):
         task = RealmRaidTask.__new__(RealmRaidTask)
