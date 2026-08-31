@@ -1,11 +1,11 @@
 # testoyj 更新日志
 
-本文件只记录 `XDeolx/OnmyojiAutoScript` 的 `testoyj` 分支改动，独立于上游 README 和发布说明。
-
 ## 常驻致谢
 
 1. [xylolit-mu/OnmyojiAutoScript（self 分支）](https://github.com/xylolit-mu/OnmyojiAutoScript/tree/self)：本分支任务实现与功能更新的主要参考来源；结界蹭卡、突破及百鬼棋局等功能均在其持续维护成果基础上结合本分支需求进行适配。
 2. [AzurTian/OnmyojiAutoScript](https://github.com/AzurTian/OnmyojiAutoScript)：OAS 上游项目及基础框架来源，本分支持续跟进其通用功能、资源和稳定性更新。
+
+本文件只记录 `XDeolx/OnmyojiAutoScript` 的 `testoyj` 分支改动，独立于上游 README 和发布说明。
 
 ## 2026-08-31
 
