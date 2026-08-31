@@ -27,6 +27,7 @@ from module.base.timer import Timer
 
 
 REALM_RAID_FIRE_DELAY_RANGE = (2.0, 5.0)
+REALM_RAID_QUICK_EXIT_DELAY_RANGE = (2.0, 5.0)
 
 
 def random_attack_delay(
@@ -510,6 +511,40 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RealmRaidAssets):
             if self.appear_then_click(self.I_FIRE_AGAIN, interval=2):
                 continue
         return False
+
+    def exit_battle(self, skip_first: bool = False) -> bool:
+        """退四次时在退出按钮可用后留出一次人类反应时间。"""
+        context = getattr(self, '_battle_context', None)
+        if context is not None and context.quick_exit:
+            delay_complete = getattr(
+                context,
+                'realm_raid_quick_exit_delay_complete',
+                False,
+            )
+            if not delay_complete and self.appear(self.I_EXIT):
+                delay_timer = getattr(
+                    context,
+                    'realm_raid_quick_exit_delay_timer',
+                    None,
+                )
+                if delay_timer is None:
+                    delay = random_attack_delay(
+                        *REALM_RAID_QUICK_EXIT_DELAY_RANGE
+                    )
+                    logger.info(
+                        '个人突破退四次退出前随机等待: '
+                        f'delay={delay:.1f}s'
+                    )
+                    delay_timer = Timer(delay).start()
+                    context.realm_raid_quick_exit_delay_timer = delay_timer
+                if not delay_timer.reached():
+                    if context.quick_exit_timer is not None:
+                        context.quick_exit_timer.reset()
+                    return False
+                context.realm_raid_quick_exit_delay_complete = True
+                if context.quick_exit_timer is not None:
+                    context.quick_exit_timer.reset()
+        return super().exit_battle(skip_first=skip_first)
 
     @cached_property
     def false_roi(self) -> list:

@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch
 from tasks.Component.GeneralBattle.general_battle import GeneralBattle
 from module.base.protect import random_delay as common_random_delay
 from tasks.RealmRaid.script_task import REALM_RAID_FIRE_DELAY_RANGE
+from tasks.RealmRaid.script_task import REALM_RAID_QUICK_EXIT_DELAY_RANGE
 from tasks.RealmRaid.script_task import ScriptTask as RealmRaidTask
 from tasks.RealmRaid.script_task import random_attack_delay
 from tasks.RyouToppa.script_task import TOPPA_FIRE_DELAY_RANGE
@@ -163,6 +164,56 @@ class BreakthroughHumanizationTest(unittest.TestCase):
 
         task.appear_then_click.assert_not_called()
         task.click.assert_not_called()
+
+    def test_realm_raid_quick_exit_waits_after_exit_button_appears(self):
+        task = RealmRaidTask.__new__(RealmRaidTask)
+        task.I_EXIT = Mock()
+        task.appear = Mock(return_value=True)
+        quick_exit_timer = Mock()
+        context = SimpleNamespace(
+            quick_exit=True,
+            quick_exit_timer=quick_exit_timer,
+        )
+        task._battle_context = context
+        delay_timer = Mock()
+        delay_timer.start.return_value = delay_timer
+        delay_timer.reached.side_effect = [False, True]
+
+        with patch(
+            'tasks.RealmRaid.script_task.random_attack_delay',
+            return_value=3.7,
+        ) as delay, patch(
+            'tasks.RealmRaid.script_task.Timer',
+            return_value=delay_timer,
+        ) as timer_class, patch.object(
+            GeneralBattle,
+            'exit_battle',
+            return_value=True,
+        ) as base_exit:
+            self.assertFalse(task.exit_battle())
+            base_exit.assert_not_called()
+            self.assertTrue(task.exit_battle())
+
+        delay.assert_called_once_with(*REALM_RAID_QUICK_EXIT_DELAY_RANGE)
+        timer_class.assert_called_once_with(3.7)
+        self.assertEqual(quick_exit_timer.reset.call_count, 2)
+        base_exit.assert_called_once_with(skip_first=False)
+
+    def test_realm_raid_normal_exit_has_no_extra_delay(self):
+        task = RealmRaidTask.__new__(RealmRaidTask)
+        task._battle_context = SimpleNamespace(quick_exit=False)
+
+        with patch(
+            'tasks.RealmRaid.script_task.random_attack_delay',
+        ) as delay, patch.object(
+            GeneralBattle,
+            'exit_battle',
+            return_value=True,
+        ) as base_exit:
+            self.assertTrue(task.exit_battle())
+
+        delay.assert_not_called()
+        base_exit.assert_called_once_with(skip_first=False)
 
     def test_ryou_toppa_waits_after_target_selection_before_fire(self):
         task = RyouToppaTask.__new__(RyouToppaTask)
