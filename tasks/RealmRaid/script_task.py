@@ -3,6 +3,7 @@
 # github https://github.com/runhey
 import time
 import re
+import random
 from cached_property import cached_property
 from tasks.GameUi.default_pages import page_exploration
 
@@ -22,6 +23,18 @@ from module.exception import TaskEnd
 from module.atom.image_grid import ImageGrid
 from module.atom.image import RuleImage
 from module.atom.click import RuleClick
+from module.base.timer import Timer
+
+
+REALM_RAID_FIRE_DELAY_RANGE = (2.0, 5.0)
+
+
+def random_attack_delay(
+    min_value: float = REALM_RAID_FIRE_DELAY_RANGE[0],
+    max_value: float = REALM_RAID_FIRE_DELAY_RANGE[1],
+    decimal: int = 1,
+) -> float:
+    return round(random.uniform(min_value, max_value), decimal)
 
 
 class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RealmRaidAssets):
@@ -447,12 +460,33 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RealmRaidAssets):
         click = self.partition[order - 1]
         self.wait_until_appear(self.I_RR_PERSON)
         self.device.click_record_clear()
+        delay_enabled = self.config.realm_raid.raid_config.realm_raid_attack_delay
+        fire_delay_timer = None
+        fire_delay_complete = not delay_enabled
         while True:
             self.screenshot()
             if not self.appear(self.I_RR_PERSON):
                 return True
-            if self.appear_then_click(self.I_FIRE, interval=1):
-                continue
+
+            if self.appear(self.I_FIRE, threshold=0.8):
+                if not fire_delay_complete:
+                    if fire_delay_timer is None:
+                        delay = random_attack_delay()
+                        logger.info(
+                            f'个人突破进攻前随机等待: {delay:.1f}s'
+                        )
+                        fire_delay_timer = Timer(delay).start()
+                        continue
+                    if not fire_delay_timer.reached():
+                        continue
+                    fire_delay_complete = True
+                if self.appear_then_click(self.I_FIRE, interval=1, threshold=0.8):
+                    continue
+
+            # 延迟期间浮窗消失时停止本次挑战，避免重新选择已失效目标。
+            if fire_delay_timer is not None and not fire_delay_complete:
+                logger.warning('个人突破进攻按钮在等待期间消失，取消本次挑战')
+                return False
             if self.click(click, interval=2):
                 continue
         logger.info(f'Click fire {order} success')

@@ -3,7 +3,9 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from tasks.Component.GeneralBattle.general_battle import GeneralBattle
+from tasks.RealmRaid.script_task import REALM_RAID_FIRE_DELAY_RANGE
 from tasks.RealmRaid.script_task import ScriptTask as RealmRaidTask
+from tasks.RealmRaid.script_task import random_attack_delay
 from tasks.RyouToppa.script_task import TOPPA_FIRE_DELAY_RANGE
 from tasks.RyouToppa.script_task import ScriptTask as RyouToppaTask
 from tasks.RyouToppa.script_task import random_delay as ryou_toppa_random_delay
@@ -46,6 +48,106 @@ class BreakthroughHumanizationTest(unittest.TestCase):
                 3.6,
             )
         uniform.assert_called_once_with(2.0, 5.0)
+
+    def test_realm_raid_fire_delay_uses_two_to_five_seconds(self):
+        with patch(
+            'tasks.RealmRaid.script_task.random.uniform',
+            return_value=3.4,
+        ) as uniform:
+            self.assertEqual(random_attack_delay(), 3.4)
+        uniform.assert_called_once_with(*REALM_RAID_FIRE_DELAY_RANGE)
+
+    def test_realm_raid_waits_before_clicking_fire_when_enabled(self):
+        task = RealmRaidTask.__new__(RealmRaidTask)
+        task.config = SimpleNamespace(
+            realm_raid=SimpleNamespace(
+                raid_config=SimpleNamespace(realm_raid_attack_delay=True),
+            ),
+        )
+        task.partition = [Mock()]
+        task.I_RR_PERSON = Mock()
+        task.I_FIRE = Mock()
+        task.wait_until_appear = Mock()
+        task.device = SimpleNamespace(click_record_clear=Mock())
+        task.screenshot = Mock()
+        task.appear = Mock(side_effect=[True, True, True, True, True, True, False])
+        task.appear_then_click = Mock(return_value=True)
+        task.click = Mock()
+        timer = Mock()
+        timer.start.return_value = timer
+        timer.reached.side_effect = [False, True]
+
+        with patch(
+            'tasks.RealmRaid.script_task.random_attack_delay',
+            return_value=3.4,
+        ) as delay, patch(
+            'tasks.RealmRaid.script_task.Timer',
+            return_value=timer,
+        ) as timer_class:
+            self.assertTrue(task.fire(1))
+
+        delay.assert_called_once_with()
+        timer_class.assert_called_once_with(3.4)
+        task.appear_then_click.assert_called_once_with(
+            task.I_FIRE,
+            interval=1,
+            threshold=0.8,
+        )
+        task.click.assert_not_called()
+
+    def test_realm_raid_clicks_fire_without_delay_when_disabled(self):
+        task = RealmRaidTask.__new__(RealmRaidTask)
+        task.config = SimpleNamespace(
+            realm_raid=SimpleNamespace(
+                raid_config=SimpleNamespace(realm_raid_attack_delay=False),
+            ),
+        )
+        task.partition = [Mock()]
+        task.I_RR_PERSON = Mock()
+        task.I_FIRE = Mock()
+        task.wait_until_appear = Mock()
+        task.device = SimpleNamespace(click_record_clear=Mock())
+        task.screenshot = Mock()
+        task.appear = Mock(side_effect=[True, True, False])
+        task.appear_then_click = Mock(return_value=True)
+        task.click = Mock()
+
+        with patch('tasks.RealmRaid.script_task.random_attack_delay') as delay:
+            self.assertTrue(task.fire(1))
+
+        delay.assert_not_called()
+        task.appear_then_click.assert_called_once()
+
+    def test_realm_raid_cancels_if_fire_disappears_during_delay(self):
+        task = RealmRaidTask.__new__(RealmRaidTask)
+        task.config = SimpleNamespace(
+            realm_raid=SimpleNamespace(
+                raid_config=SimpleNamespace(realm_raid_attack_delay=True),
+            ),
+        )
+        task.partition = [Mock()]
+        task.I_RR_PERSON = Mock()
+        task.I_FIRE = Mock()
+        task.wait_until_appear = Mock()
+        task.device = SimpleNamespace(click_record_clear=Mock())
+        task.screenshot = Mock()
+        task.appear = Mock(side_effect=[True, True, True, False])
+        task.appear_then_click = Mock()
+        task.click = Mock()
+        timer = Mock()
+        timer.start.return_value = timer
+
+        with patch(
+            'tasks.RealmRaid.script_task.random_attack_delay',
+            return_value=3.4,
+        ), patch(
+            'tasks.RealmRaid.script_task.Timer',
+            return_value=timer,
+        ):
+            self.assertFalse(task.fire(1))
+
+        task.appear_then_click.assert_not_called()
+        task.click.assert_not_called()
 
     def test_ryou_toppa_waits_after_target_selection_before_fire(self):
         task = RyouToppaTask.__new__(RyouToppaTask)
