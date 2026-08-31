@@ -75,8 +75,30 @@ jobs:
           Set-Content -LiteralPath $notesPath -Value $notes -Encoding utf8
           $assets = Get-ChildItem -LiteralPath "$env:GITHUB_WORKSPACE\release" -File |
             ForEach-Object { $_.FullName }
-          gh release create $tag @assets `
-            --repo '${{ github.repository }}' `
-            --title "testoyj OAS v$version Windows 免安装包" `
-            --notes-file $notesPath `
-            --latest
+          $repository = '${{ github.repository }}'
+          $title = "testoyj OAS v$version Windows 免安装包"
+          gh release view $tag --repo $repository *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release edit $tag `
+              --repo $repository `
+              --title $title `
+              --notes-file $notesPath `
+              --latest
+            if ($LASTEXITCODE -ne 0) {
+              throw "Failed to update existing release $tag"
+            }
+            gh release upload $tag @assets --repo $repository --clobber
+            if ($LASTEXITCODE -ne 0) {
+              throw "Failed to replace assets in existing release $tag"
+            }
+          }
+          else {
+            gh release create $tag @assets `
+              --repo $repository `
+              --title $title `
+              --notes-file $notesPath `
+              --latest
+            if ($LASTEXITCODE -ne 0) {
+              throw "Failed to create release $tag"
+            }
+          }
