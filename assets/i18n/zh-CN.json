@@ -1,5 +1,6 @@
 {
-  "Chess": "百鬼棋局",
+  "Chess": "百鬼棋局（测试版）",
+  "chess_test_notice": "当前为新版百鬼棋局测试实现；如运行不稳定，请将 OAS 切换到 testoyj-chess-legacy 分支使用旧版。",
   "chess_config": "百鬼棋局配置",
   "lineup_bond": "战斗策略",
   "rank_protection": "保段位",
