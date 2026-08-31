@@ -1,0 +1,82 @@
+name: 发布 testoyj OAS Windows 安装包
+
+on:
+  push:
+    tags:
+      - 'testoyj-oas-v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: testoyj-oas-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package-windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: 检出发布脚本
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: 解析版本号
+        id: version
+        shell: pwsh
+        run: |
+          $tag = '${{ github.ref_name }}'
+          $prefix = 'testoyj-oas-v'
+          if (-not $tag.StartsWith($prefix)) {
+            throw "Unexpected release tag: $tag"
+          }
+          $version = $tag.Substring($prefix.Length)
+          if ($version -notmatch '^\d+\.\d+\.\d+([-.][0-9A-Za-z.-]+)?$') {
+            throw "Invalid release version: $version"
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: 下载官方基础运行包
+        shell: pwsh
+        run: |
+          $url = 'https://github.com/runhey/OnmyojiAutoScript/releases/download/oas-install-v1.0.0/OnmyojiAutoScript-easy-install.rar'
+          Invoke-WebRequest -Uri $url -OutFile "$env:RUNNER_TEMP\oas-easy-install.rar"
+
+      - name: 构建 Windows 免安装包
+        shell: pwsh
+        run: |
+          & .\.github\scripts\build-testoyj-package.ps1 `
+            -RepositoryUrl 'https://github.com/XDeolx/OnmyojiAutoScript.git' `
+            -Branch 'testoyj' `
+            -BaseArchive "$env:RUNNER_TEMP\oas-easy-install.rar" `
+            -OutputDirectory "$env:GITHUB_WORKSPACE\release" `
+            -Version '${{ steps.version.outputs.version }}' `
+            -ExpectedCommit '${{ github.sha }}'
+
+      - name: 创建 GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = '${{ github.ref_name }}'
+          $version = '${{ steps.version.outputs.version }}'
+          $notes = @"
+          ## testoyj OAS Windows 免安装包 $version
+
+          - 基于官方 OAS easy-install 运行环境和 `testoyj` 分支构建。
+          - 解压到新的英文路径后，在 OASX 中选择该 OAS 目录即可使用。
+          - 安装包不包含任何用户账号配置、周计划、日志或截图。
+          - 压缩包内保留浅层 `testoyj` Git 仓库，后续更新只需拉取少量增量。
+          - `.sha256` 文件可用于核对压缩包完整性。
+          "@
+          $notesPath = Join-Path $env:RUNNER_TEMP 'release-notes.md'
+          Set-Content -LiteralPath $notesPath -Value $notes -Encoding utf8
+          $assets = Get-ChildItem -LiteralPath "$env:GITHUB_WORKSPACE\release" -File |
+            ForEach-Object { $_.FullName }
+          gh release create $tag @assets `
+            --repo '${{ github.repository }}' `
+            --title "testoyj OAS v$version Windows 免安装包" `
+            --notes-file $notesPath `
+            --latest
