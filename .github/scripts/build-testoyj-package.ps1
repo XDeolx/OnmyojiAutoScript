@@ -100,6 +100,7 @@ try {
     $deployContent = Get-Content -LiteralPath $packageDeployPath -Raw
     $deployContent = $deployContent -replace '(?m)^(\s*Repository:\s*).+$', "`${1}$RepositoryUrl"
     $deployContent = $deployContent -replace '(?m)^(\s*Branch:\s*).+$', "`${1}$Branch"
+    $deployContent = $deployContent -replace '(?m)^(\s*StartOcrServer:\s*).+$', '${1}true'
     Set-Content -LiteralPath $packageDeployPath -Value $deployContent -Encoding utf8
 
     foreach ($relativePath in @('oas.exe', 'console.bat', 'oas-backend.bat')) {
@@ -146,8 +147,9 @@ try {
 
     $packagedDeploy = Get-Content -LiteralPath $packageDeployPath -Raw
     if ($packagedDeploy -notmatch [regex]::Escape("Repository: $RepositoryUrl") -or
-        $packagedDeploy -notmatch [regex]::Escape("Branch: $Branch")) {
-        throw 'Packaged deploy.yaml does not target the requested repository and branch'
+        $packagedDeploy -notmatch [regex]::Escape("Branch: $Branch") -or
+        $packagedDeploy -notmatch '(?m)^\s*StartOcrServer:\s*true\s*$') {
+        throw 'Packaged deploy.yaml does not contain the required repository, branch and OCR settings'
     }
 
     $archiveName = "OnmyojiAutoScript-testoyj-$Version-Windows.zip"
