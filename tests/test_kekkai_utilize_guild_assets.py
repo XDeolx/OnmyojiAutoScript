@@ -1,9 +1,9 @@
 import unittest
 from types import SimpleNamespace
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 from tasks.KekkaiUtilize.config import UtilizeConfig
-from tasks.KekkaiUtilize.page import page_guild
+from tasks.KekkaiUtilize.page import page_gr_exp_jug, page_guild, page_guild_realm
 from tasks.KekkaiUtilize.script_task import ScriptTask
 
 
@@ -97,6 +97,36 @@ class KekkaiUtilizeGuildAssetsTest(unittest.TestCase):
         self.assertFalse(task.guild_lottery(random_wait_enable=True))
 
         task.ui_click_until_appear_or_timeout.assert_called_once()
+
+    def test_exp_jug_return_uses_scoped_page_detection(self):
+        task = self._task()
+        task.goto_page = Mock()
+        task.get_current_page = Mock(
+            side_effect=AssertionError('global page detection must not be used')
+        )
+        task.detect_page_in = Mock(return_value=page_guild_realm)
+        task.appear = Mock(
+            side_effect=lambda target, **_: target is task.I_BOX_EXP
+        )
+
+        self.assertTrue(
+            task.check_box_ap_or_exp(
+                ap_enable=False,
+                exp_enable=True,
+                exp_waste=True,
+            )
+        )
+
+        task.detect_page_in.assert_called_once_with(
+            page_guild_realm,
+            page_gr_exp_jug,
+            include_global=False,
+        )
+        task.get_current_page.assert_not_called()
+        self.assertEqual(
+            task.goto_page.call_args_list,
+            [call(page_gr_exp_jug), call(page_guild_realm)],
+        )
 
 
 if __name__ == '__main__':

@@ -377,7 +377,12 @@ class ScriptTask(GameUi, ReplaceShikigami, KekkaiUtilizeAssets):
                     break
                 self.screenshot()
                 # 如果出现结界皮肤， 表示收取好了
-                if self.get_current_page() == page_guild_realm:
+                current_page = self.detect_page_in(
+                    page_guild_realm,
+                    page_gr_exp_jug,
+                    include_global=False,
+                )
+                if current_page == page_guild_realm:
                     break
                 # 如果出现收取确认，表明进入到了有满级的
                 if self.appear(self.I_UI_CONFIRM) and self.appear(self.I_UI_CANCEL):
