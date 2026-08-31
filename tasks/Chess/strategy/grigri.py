@@ -170,10 +170,19 @@ def lineup_bond_context(strategy: dict) -> dict:
     )
     primary = strategy.get('display_name', '')
     primary_count = counts.get(primary, 0)
-    secondary = frozenset(
-        bond
-        for bond, count in counts.items()
-        if 2 < count < primary_count
+    secondary_bond = max(
+        (
+            bond
+            for bond, count in counts.items()
+            if bond != primary and count < primary_count
+        ),
+        key=counts.__getitem__,
+        default=None,
+    )
+    secondary = (
+        frozenset((secondary_bond,))
+        if secondary_bond is not None
+        else frozenset()
     )
     return {
         'counts': dict(counts),

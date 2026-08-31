@@ -53,18 +53,37 @@ class ScriptTask(GameUi, ReplaceShikigami, KekkaiUtilizeAssets):
         '斗鱼': 151,
     }
     GUILD_REWARD_WAIT_RANGE = (2.0, 4.0)
+    REST_INTERVAL_FACTOR_RANGE = (0.6, 0.9)
 
-    @staticmethod
+    @classmethod
+    def _sample_rest_interval(
+        cls,
+        configured_interval: timedelta,
+        factor: float | None = None,
+    ) -> tuple[timedelta, float]:
+        if not configured_interval or configured_interval.total_seconds() <= 0:
+            return timedelta(0), 0.0
+        if factor is None:
+            factor = random.uniform(*cls.REST_INTERVAL_FACTOR_RANGE)
+        randomized_seconds = round(
+            configured_interval.total_seconds() * factor
+        )
+        return timedelta(seconds=randomized_seconds), factor
+
+    @classmethod
     def _next_utilize_run_time(
+        cls,
         remaining_time: timedelta,
         min_run_interval: timedelta,
         now: datetime | None = None,
+        interval_factor: float | None = None,
     ) -> datetime:
         now = now or datetime.now()
-        next_time = now + remaining_time
-        if min_run_interval and min_run_interval.total_seconds() > 0:
-            next_time += min_run_interval
-        return next_time
+        rest_interval, _ = cls._sample_rest_interval(
+            min_run_interval,
+            factor=interval_factor,
+        )
+        return now + remaining_time + rest_interval
 
     def run(self):
         con = self.config.kekkai_utilize.utilize_config
@@ -294,11 +313,16 @@ class ScriptTask(GameUi, ReplaceShikigami, KekkaiUtilizeAssets):
                 logger.info(f'Utilize remaining time: {remaining_time}')
                 # 已经蹭上卡了，设置下次蹭卡时间  # 减少30秒
                 # remaining_time = remaining_time - timedelta(seconds=30)
-                next_time = self._next_utilize_run_time(
-                    remaining_time,
-                    con.min_run_interval,
+                rest_interval, interval_factor = (
+                    self._sample_rest_interval(con.min_run_interval)
                 )
-                logger.info(f'Utilize rest interval: {con.min_run_interval}')
+                next_time = datetime.now() + remaining_time + rest_interval
+                logger.info(
+                    'Utilize randomized rest interval: '
+                    f'configured={con.min_run_interval}, '
+                    f'factor={interval_factor:.3f}, '
+                    f'effective={rest_interval}'
+                )
                 self.set_next_run(task='KekkaiUtilize', target=next_time)
                 return True
             if not self.goto_page(page_guild_realm_utilize):
