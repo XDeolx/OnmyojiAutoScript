@@ -613,6 +613,7 @@ class ScriptTask(GameUi, GeneralBattle, ChessAssets):
             'Rightmost Chess card sale confirmed: '
             f'count={count_before}->{count_after}'
         )
+        self.device.click_record_clear()
         return {
             'type': 'rightmost',
             'name': identity['name'],
@@ -1787,6 +1788,7 @@ class ScriptTask(GameUi, GeneralBattle, ChessAssets):
                     f'name={self._shikigami_display_name(sell_target["name"])}, '
                     f'count={count_before}->{count_after}'
                 )
+                self.device.click_record_clear()
                 continue
 
             failed_sale_attempts[sale_key] = (
@@ -2998,6 +3000,7 @@ class ScriptTask(GameUi, GeneralBattle, ChessAssets):
                 'Chess shop purchase succeeded by avatar disappearance: '
                 f'slot={slot_index}, name={matched_name}, attempts={attempts}'
             )
+            self.device.click_record_clear()
             return True
 
         logger.warning(
