@@ -66,12 +66,12 @@ class BreakthroughHumanizationTest(unittest.TestCase):
             )
         uniform.assert_called_once_with(2.0, 5.0)
 
-    def test_realm_raid_fire_delay_uses_two_to_five_seconds(self):
+    def test_realm_raid_fire_delay_uses_one_to_three_seconds(self):
         with patch(
             'tasks.RealmRaid.script_task.random.uniform',
-            return_value=3.4,
+            return_value=2.4,
         ) as uniform:
-            self.assertEqual(random_attack_delay(), 3.4)
+            self.assertEqual(random_attack_delay(), 2.4)
         uniform.assert_called_once_with(*REALM_RAID_FIRE_DELAY_RANGE)
 
     def test_realm_raid_waits_before_clicking_fire_when_enabled(self):
@@ -96,7 +96,7 @@ class BreakthroughHumanizationTest(unittest.TestCase):
 
         with patch(
             'tasks.RealmRaid.script_task.random_attack_delay',
-            return_value=3.4,
+            return_value=2.4,
         ) as delay, patch(
             'tasks.RealmRaid.script_task.Timer',
             return_value=timer,
@@ -104,7 +104,7 @@ class BreakthroughHumanizationTest(unittest.TestCase):
             self.assertTrue(task.fire(1))
 
         delay.assert_called_once_with()
-        timer_class.assert_called_once_with(3.4)
+        timer_class.assert_called_once_with(2.4)
         task.appear_then_click.assert_called_once_with(
             task.I_FIRE,
             interval=1,
@@ -156,7 +156,7 @@ class BreakthroughHumanizationTest(unittest.TestCase):
 
         with patch(
             'tasks.RealmRaid.script_task.random_attack_delay',
-            return_value=3.4,
+            return_value=2.4,
         ), patch(
             'tasks.RealmRaid.script_task.Timer',
             return_value=timer,

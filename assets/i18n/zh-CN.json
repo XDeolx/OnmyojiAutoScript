@@ -1,7 +1,7 @@
 {
   "Chess": "百鬼棋局（测试版）",
   "realm_raid_attack_delay": "进攻前随机延迟",
-  "realm_raid_attack_delay_help": "选中个人突破对手并出现进攻按钮后，随机等待 2-5 秒再点击；等待期间按钮消失则取消本次挑战。",
+  "realm_raid_attack_delay_help": "选中个人突破对手并出现进攻按钮后，在 1-3 秒内随机等待（保留小数）再点击；等待期间按钮消失则取消本次挑战。",
   "chess_test_notice": "当前为新版百鬼棋局测试实现；如运行不稳定，请将 OAS 切换到 testoyj-chess-legacy 分支使用旧版。",
   "chess_config": "百鬼棋局配置",
   "lineup_bond": "战斗策略",

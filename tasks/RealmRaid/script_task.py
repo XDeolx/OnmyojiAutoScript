@@ -26,7 +26,7 @@ from module.atom.click import RuleClick
 from module.base.timer import Timer
 
 
-REALM_RAID_FIRE_DELAY_RANGE = (2.0, 5.0)
+REALM_RAID_FIRE_DELAY_RANGE = (1.0, 3.0)
 REALM_RAID_QUICK_EXIT_DELAY_RANGE = (1.0, 2.0)
 REALM_RAID_QUICK_EXIT_RETRY_DELAY_RANGE = (1.0, 2.0)
 
