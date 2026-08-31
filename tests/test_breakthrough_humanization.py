@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from tasks.Component.GeneralBattle.general_battle import GeneralBattle
+from module.base.protect import random_delay as common_random_delay
 from tasks.RealmRaid.script_task import REALM_RAID_FIRE_DELAY_RANGE
 from tasks.RealmRaid.script_task import ScriptTask as RealmRaidTask
 from tasks.RealmRaid.script_task import random_attack_delay
@@ -13,6 +14,20 @@ from tasks.base_task import BaseTask
 
 
 class BreakthroughHumanizationTest(unittest.TestCase):
+    def test_common_random_delay_logs_actual_duration(self):
+        with patch(
+            'module.base.protect.random.uniform',
+            return_value=3.4,
+        ), patch(
+            'module.base.protect.sleep',
+        ) as sleep, patch(
+            'module.base.protect.logger',
+        ) as logger:
+            self.assertEqual(common_random_delay(), 3.4)
+
+        sleep.assert_called_once_with(3.4)
+        logger.info.assert_called_once_with('通用随机休息: delay=3.4s')
+
     def test_breakthrough_tasks_declare_humanized_ranges(self):
         for task_class in (RyouToppaTask, RealmRaidTask):
             self.assertEqual(task_class.CLICK_REACTION_DELAY, (0.18, 0.22))

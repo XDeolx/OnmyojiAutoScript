@@ -301,7 +301,7 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RyouToppaAssets):
         # 选择下一个目标前可按配置随机等待 2s - 10s。
         if self.config.ryou_toppa.raid_config.random_delay:
             delay = random_delay()
-            logger.info(f'Random delay before selecting RyouToppa target: {delay:.1f}s')
+            logger.info(f'寮突破选择目标前随机等待: delay={delay:.1f}s')
             time.sleep(delay)
         rcl = area_map[index].get("rule_click")
         # 塔塔开！
@@ -336,7 +336,7 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RyouToppaAssets):
                 if not fire_delay_ready:
                     if fire_delay_timer is None:
                         delay = random_delay(*TOPPA_FIRE_DELAY_RANGE)
-                        logger.info(f'Random delay before clicking RyouToppa attack: {delay:.1f}s')
+                        logger.info(f'寮突破点击进攻前随机等待: delay={delay:.1f}s')
                         fire_delay_timer = Timer(delay).start()
                         continue
                     if not fire_delay_timer.reached():

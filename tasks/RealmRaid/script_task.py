@@ -473,7 +473,7 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RealmRaidAssets):
                     if fire_delay_timer is None:
                         delay = random_attack_delay()
                         logger.info(
-                            f'个人突破进攻前随机等待: {delay:.1f}s'
+                            f'个人突破点击进攻前随机等待: delay={delay:.1f}s'
                         )
                         fire_delay_timer = Timer(delay).start()
                         continue
