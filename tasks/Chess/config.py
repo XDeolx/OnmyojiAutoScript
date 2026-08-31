@@ -2,9 +2,9 @@
 
 from pydantic import Field
 
-from tasks.Component.config_base import ConfigBase
+from tasks.Component.config_base import ConfigBase, Time
 from tasks.Component.config_scheduler import Scheduler
-from tasks.Chess.lineup import LineupBond
+from tasks.Chess.strategy.lineup import LineupBond
 
 
 class ChessConfig(ConfigBase):
@@ -12,21 +12,26 @@ class ChessConfig(ConfigBase):
 
     lineup_bond: LineupBond = Field(
         title='选择阵容羁绊',
-        default=LineupBond.QIJIAOSHAN,
+        default=LineupBond.ARAKAWA,
         description='选择百鬼棋局使用的阵容羁绊与对应运营策略',
     )
 
-    early_exit: bool = Field(
-        title='是否提前退出',
+    rank_protection: bool = Field(
+        title='保段位',
         default=False,
-        description='勾选后在存活人数达到下方阈值时主动退出当前对局',
+        description='开启后每完成前四名一局主动退出三局；退出局不计入执行次数',
+    )
+    early_exit: bool = Field(
+        title='按剩余人数提前退出',
+        default=False,
+        description='开启后在回目开始时检测存活人数，达到设定阈值后主动退出',
     )
     remaining_players: int = Field(
-        title='剩余人数',
+        title='提前退出人数阈值',
         default=0,
         ge=0,
         le=8,
-        description='存活人数小于或等于该数值时主动退出，范围0至8；0表示不退出',
+        description='存活人数小于或等于该数值时主动退出；0表示不启用',
     )
 
     run_count: int = Field(
@@ -35,10 +40,33 @@ class ChessConfig(ConfigBase):
         ge=-1,
         description='完成目标局数后结束；设置为-1时一直执行',
     )
+    matchmaking_timeout_seconds: int = Field(
+        title='匹配限制时间（秒）',
+        default=60,
+        ge=10,
+        description=(
+            '单次匹配超过限制后取消并重新匹配；连续三次超时'
+            '则标记为等待过多并结束任务'
+        ),
+    )
+    limit_time: Time = Field(
+        title='运行时间限制',
+        default=Time(minute=30),
+        description='达到限制时间后不再开始下一局，已经开始的对局会正常完成',
+    )
     coin_full_exit: bool = Field(
         title='刷满鼬乐币',
         default=False,
-        description='勾选后检测到鼬乐币为600/600时立即结束百鬼棋局',
+        description='勾选后检测到鼬乐币已满时立即结束百鬼棋局',
+    )
+    continue_grigri_refresh_below_nine: bool = Field(
+        title='刷新非前40%符咒',
+        default=True,
+        description=(
+            '按当前品质符咒总数的实际收益排名，保留排名前40%的'
+            '选项，只刷新其余仍有刷新次数的位置；同收益边界按'
+            '固定图鉴顺序确定名次'
+        ),
     )
 
 

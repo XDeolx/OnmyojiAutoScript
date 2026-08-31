@@ -2,7 +2,20 @@
 
 本文件只记录 `XDeolx/OnmyojiAutoScript` 的 `testoyj` 分支改动，独立于上游 README 和发布说明。
 
+## 常驻致谢
+
+1. [xylolit-mu/OnmyojiAutoScript（self 分支）](https://github.com/xylolit-mu/OnmyojiAutoScript/tree/self)：本分支任务实现与功能更新的主要参考来源；结界蹭卡、突破及百鬼棋局等功能均在其持续维护成果基础上结合本分支需求进行适配。
+2. [AzurTian/OnmyojiAutoScript](https://github.com/AzurTian/OnmyojiAutoScript)：OAS 上游项目及基础框架来源，本分支持续跟进其通用功能、资源和稳定性更新。
+
 ## 2026-08-31
+
+### 百鬼棋局同步与模块化升级
+
+- 以 xylolit `self` 分支的最新 Chess 实现为基础同步百鬼棋局，将单文件流程拆分为状态识别、经济系统、手牌操作、阵容策略和符咒策略等独立模块。
+- 新增荒川、海国、大江山、狐妖、冥府、流火和七角山阵容策略，以及完整的符咒品质、收益排序与刷新处理。
+- 增加运行时间、匹配超时、保段位、鼬乐币满额退出等控制，并兼容升级前保存的阵容和执行次数配置。
+- 保留结算页实际名次 OCR；同时保留本分支原有的“按剩余人数提前退出”选项，默认关闭，可与保段位逻辑独立使用。
+- 将本分支的买卡、卖卡成功后点击记录清理适配到新版模块，避免正常连续运营被误判为重复点击卡死。
 
 ### 结界经验酒壶返回稳定性
 
@@ -141,10 +154,9 @@
 - 上游 OASX `v0.3.12` 不包含周计划编辑界面。
 - `config/*.json` 中的账号配置属于本机数据，已由 `.gitignore` 排除，不会随分支或构建产物发布。
 
-## 参考说明
+## 分支说明
 
 - `testoyj` 包含独立开发的周计划、调度保护和界面配套能力，也参考了上游及社区分支中的部分稳定性修复和任务实现；以上日志按本分支最终实际行为记录。
-- 上游项目：<https://github.com/AzurTian/OnmyojiAutoScript>
-- 社区参考：<https://github.com/xylolit-mu/OnmyojiAutoScript>
+- 主要参考来源、顺序与链接见文首“常驻致谢”。
 - 分支仓库：<https://github.com/XDeolx/OnmyojiAutoScript/tree/testoyj>
 - 配套 OASX 更新日志：<https://github.com/XDeolx/OASX/blob/testoyj/TESTOYJ_CHANGELOG.md>

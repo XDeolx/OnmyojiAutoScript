@@ -36,27 +36,51 @@
     "description": ""
   },
   {
-    "itemName": "buff_option_1",
+    "itemName": "grigri_option_1",
     "roiFront": "320,205,90,130",
     "roiBack": "320,205,90,130",
-    "description": "Buff左侧选项卡面"
+    "description": "左侧符咒选项卡面"
   },
   {
-    "itemName": "buff_option_2",
+    "itemName": "grigri_option_2",
     "roiFront": "598,205,90,130",
     "roiBack": "598,205,90,130",
-    "description": "Buff中间选项卡面"
+    "description": "中间符咒选项卡面"
   },
   {
-    "itemName": "buff_option_3",
+    "itemName": "grigri_option_3",
     "roiFront": "875,205,90,130",
     "roiBack": "875,205,90,130",
-    "description": "Buff右侧选项卡面"
+    "description": "右侧符咒选项卡面"
+  },
+  {
+    "itemName": "grigri_refresh_1",
+    "roiFront": "300,600,122,40",
+    "roiBack": "300,600,122,40",
+    "description": "左侧符咒刷新"
+  },
+  {
+    "itemName": "grigri_refresh_2",
+    "roiFront": "587,596,122,40",
+    "roiBack": "587,596,122,40",
+    "description": "中间符咒刷新"
+  },
+  {
+    "itemName": "grigri_refresh_3",
+    "roiFront": "862,599,122,40",
+    "roiBack": "862,599,122,40",
+    "description": "右侧符咒刷新"
   },
   {
     "itemName": "click_close_specifics_area",
     "roiFront": "193,95,91,430",
     "roiBack": "193,95,91,430",
     "description": "关闭式神详情界面"
+  },
+  {
+    "itemName": "cancel_waiting",
+    "roiFront": "584,597,111,45",
+    "roiBack": "579,592,121,55",
+    "description": "取消匹配等待"
   }
 ]

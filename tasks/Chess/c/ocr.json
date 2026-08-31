@@ -1,45 +1,45 @@
 [
   {
     "itemName": "shikigami_gold_5",
-    "roiFront": "501,261,21,34",
-    "roiBack": "501,261,21,34",
-    "mode": "Single",
+    "roiFront": "481,266,38,24",
+    "roiBack": "481,266,38,24",
+    "mode": "Digit",
     "method": "Default",
     "keyword": "",
     "description": "商店式神名称5"
   },
   {
     "itemName": "shikigami_gold_4",
-    "roiFront": "688,261,21,34",
-    "roiBack": "688,261,21,34",
-    "mode": "Single",
+    "roiFront": "668,266,38,24",
+    "roiBack": "668,266,38,24",
+    "mode": "Digit",
     "method": "Default",
     "keyword": "",
     "description": "商店式神名称4"
   },
   {
     "itemName": "shikigami_gold_3",
-    "roiFront": "875,261,21,34",
-    "roiBack": "875,261,21,34",
-    "mode": "Single",
+    "roiFront": "855,266,38,24",
+    "roiBack": "855,266,38,24",
+    "mode": "Digit",
     "method": "Default",
     "keyword": "",
     "description": "商店式神名称3"
   },
   {
     "itemName": "shikigami_gold_2",
-    "roiFront": "1062,261,21,34",
-    "roiBack": "1062,261,21,34",
-    "mode": "Single",
+    "roiFront": "1042,266,38,24",
+    "roiBack": "1042,266,38,24",
+    "mode": "Digit",
     "method": "Default",
     "keyword": "",
     "description": "商店式神名称2"
   },
   {
     "itemName": "shikigami_gold_1",
-    "roiFront": "1249,261,21,34",
-    "roiBack": "1249,261,21,34",
-    "mode": "Single",
+    "roiFront": "1229,266,38,24",
+    "roiBack": "1229,266,38,24",
+    "mode": "Digit",
     "method": "Default",
     "keyword": "",
     "description": "商店式神名称1"
@@ -111,7 +111,7 @@
     "itemName": "coin",
     "roiFront": "141,659,87,25",
     "roiBack": "141,659,87,25",
-    "mode": "Single",
+    "mode": "DigitCounter",
     "method": "Default",
     "keyword": "",
     "description": ""
@@ -126,13 +126,148 @@
     "description": ""
   },
   {
+    "itemName": "shikigami_skill_1",
+    "roiFront": "1120,165,94,94",
+    "roiBack": "1120,165,94,94",
+    "mode": "Single",
+    "method": "Default",
+    "keyword": "",
+    "description": ""
+  },
+  {
+    "itemName": "shikigami_skill_2",
+    "roiFront": "933,165,94,94",
+    "roiBack": "933,165,94,94",
+    "mode": "Single",
+    "method": "Default",
+    "keyword": "",
+    "description": ""
+  },
+  {
+    "itemName": "shikigami_skill_3",
+    "roiFront": "746,165,94,94",
+    "roiBack": "746,165,94,94",
+    "mode": "Single",
+    "method": "Default",
+    "keyword": "",
+    "description": ""
+  },
+  {
+    "itemName": "shikigami_skill_4",
+    "roiFront": "559,165,94,94",
+    "roiBack": "559,165,94,94",
+    "mode": "Single",
+    "method": "Default",
+    "keyword": "",
+    "description": ""
+  },
+  {
+    "itemName": "shikigami_skill_5",
+    "roiFront": "372,165,94,94",
+    "roiBack": "372,165,94,94",
+    "mode": "Single",
+    "method": "Default",
+    "keyword": "",
+    "description": ""
+  },
+  {
+    "itemName": "rank",
+    "roiFront": "443,193,417,204",
+    "roiBack": "443,193,417,204",
+    "mode": "Single",
+    "method": "Default",
+    "keyword": "",
+    "description": ""
+  },
+  {
+    "itemName": "shikigami_specifics_name",
+    "roiFront": "997,101,193,36",
+    "roiBack": "997,101,193,36",
+    "mode": "Single",
+    "method": "Default",
+    "keyword": "",
+    "description": "式神详情页名称"
+  },
+  {
+    "itemName": "shikigami_name_1",
+    "roiFront": "1097,261,117,33",
+    "roiBack": "1097,261,117,33",
+    "mode": "Single",
+    "method": "Default",
+    "keyword": "",
+    "description": ""
+  },
+  {
+    "itemName": "shikigami_name_2",
+    "roiFront": "910,261,117,33",
+    "roiBack": "910,261,117,33",
+    "mode": "Single",
+    "method": "Default",
+    "keyword": "",
+    "description": ""
+  },
+  {
+    "itemName": "shikigami_name_3",
+    "roiFront": "723,261,117,33",
+    "roiBack": "723,261,117,33",
+    "mode": "Single",
+    "method": "Default",
+    "keyword": "",
+    "description": ""
+  },
+  {
+    "itemName": "shikigami_name_4",
+    "roiFront": "536,261,117,33",
+    "roiBack": "536,261,117,33",
+    "mode": "Single",
+    "method": "Default",
+    "keyword": "",
+    "description": ""
+  },
+  {
+    "itemName": "shikigami_name_5",
+    "roiFront": "349,261,117,33",
+    "roiBack": "349,261,117,33",
+    "mode": "Single",
+    "method": "Default",
+    "keyword": "",
+    "description": ""
+  },
+  {
+    "itemName": "grigri_option_name_1",
+    "roiFront": "269,370,191,45",
+    "roiBack": "269,370,191,45",
+    "mode": "Single",
+    "method": "Default",
+    "keyword": "",
+    "description": ""
+  },
+  {
+    "itemName": "grigri_option_name_2",
+    "roiFront": "548,370,191,45",
+    "roiBack": "548,370,191,45",
+    "mode": "Single",
+    "method": "Default",
+    "keyword": "",
+    "description": ""
+  },
+  {
+    "itemName": "grigri_option_name_3",
+    "roiFront": "825,370,191,45",
+    "roiBack": "825,370,191,45",
+    "mode": "Single",
+    "method": "Default",
+    "keyword": "",
+    "description": ""
+  },
+  {
     "itemName": "health_1",
     "roiFront": "1186,76,31,24",
     "roiBack": "1186,76,31,24",
     "mode": "Single",
     "method": "Default",
     "keyword": "",
-    "description": ""
+    "description": "棋局右侧第1位玩家血量"
   },
   {
     "itemName": "health_2",
@@ -141,7 +276,7 @@
     "mode": "Single",
     "method": "Default",
     "keyword": "",
-    "description": ""
+    "description": "棋局右侧第2位玩家血量"
   },
   {
     "itemName": "health_3",
@@ -150,7 +285,7 @@
     "mode": "Single",
     "method": "Default",
     "keyword": "",
-    "description": ""
+    "description": "棋局右侧第3位玩家血量"
   },
   {
     "itemName": "health_4",
@@ -159,7 +294,7 @@
     "mode": "Single",
     "method": "Default",
     "keyword": "",
-    "description": ""
+    "description": "棋局右侧第4位玩家血量"
   },
   {
     "itemName": "health_5",
@@ -168,7 +303,7 @@
     "mode": "Single",
     "method": "Default",
     "keyword": "",
-    "description": ""
+    "description": "棋局右侧第5位玩家血量"
   },
   {
     "itemName": "health_6",
@@ -177,7 +312,7 @@
     "mode": "Single",
     "method": "Default",
     "keyword": "",
-    "description": ""
+    "description": "棋局右侧第6位玩家血量"
   },
   {
     "itemName": "health_7",
@@ -186,13 +321,22 @@
     "mode": "Single",
     "method": "Default",
     "keyword": "",
-    "description": ""
+    "description": "棋局右侧第7位玩家血量"
   },
   {
     "itemName": "health_8",
     "roiFront": "1186,510,31,24",
     "roiBack": "1186,510,31,24",
     "mode": "Single",
+    "method": "Default",
+    "keyword": "",
+    "description": "棋局右侧第8位玩家血量"
+  },
+  {
+    "itemName": "free_refresh_count",
+    "roiFront": "1183,392,38,24",
+    "roiBack": "1183,392,38,24",
+    "mode": "Digit",
     "method": "Default",
     "keyword": "",
     "description": ""
