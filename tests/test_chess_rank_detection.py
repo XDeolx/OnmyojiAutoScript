@@ -34,6 +34,16 @@ class ChessRankDetectionTest(unittest.TestCase):
         self.assertFalse(config.early_exit)
         self.assertEqual(config.remaining_players, 0)
 
+    def test_startup_recovery_navigation_contract_is_available(self):
+        task = self._task()
+        task.screenshot = Mock()
+        task.appear = Mock(return_value=False)
+
+        self.assertTrue(callable(task.chess_result_flow_visible))
+        self.assertTrue(callable(task.return_to_chess_lobby))
+        self.assertTrue(callable(task.exit_chess_battle))
+        self.assertFalse(task._recover_interrupted_chess_game())
+
 
 if __name__ == '__main__':
     unittest.main()

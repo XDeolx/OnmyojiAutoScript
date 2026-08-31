@@ -5,6 +5,10 @@ from tasks.Component.GeneralInvite.assets import GeneralInviteAssets
 from tasks.Component.SwitchAccount.assets import SwitchAccountAssets
 from tasks.Exploration.assets import ExplorationAssets
 from tasks.GameUi.action import conditional_action, sequence
+from tasks.GameUi.chess_battle import (
+    handle_chess_battle_page,
+    handle_chess_result_page,
+)
 from tasks.Pets.assets import PetsAssets
 from typing import Union
 
@@ -198,6 +202,34 @@ page_chess.connect(
     page_entertainment,
     GlobalGameAssets.I_UI_BACK_YELLOW,
     key="page_chess->page_entertainment",
+)
+
+# 遗留对局和结算页作为全局恢复节点，避免其他任务启动时卡在棋局内。
+page_chess_battle = Page(
+    GameUiAssets.I_CHECK_CHESS_BATTLE,
+    category="global",
+    priority=95,
+)
+page_chess_battle.connect(
+    page_chess,
+    handle_chess_battle_page,
+    key="page_chess_battle->page_chess",
+)
+page_chess_result = Page(
+    any_of(
+        GameUiAssets.I_CHESS_EXIT_TO_LOBBY,
+        GameUiAssets.I_CHESS_EXIT_TO_LOBBY_2,
+        GameUiAssets.I_CHESS_SHARE,
+        GameUiAssets.I_CHECK_CHESS_RANK,
+        GameUiAssets.I_CHESS_RANK_GOTO_LOBBY,
+    ),
+    category="global",
+    priority=96,
+)
+page_chess_result.connect(
+    page_chess,
+    handle_chess_result_page,
+    key="page_chess_result->page_chess",
 )
 page_entertainment.connect(
     page_town,
