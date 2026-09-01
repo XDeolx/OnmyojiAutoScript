@@ -64,7 +64,7 @@ class BaseMoonSea(GeneralBattle, SixRealmsCommon):
         if self.appear(self.I_COIN, interval=2):
             self.coin_num += self.get_coin_num(self.I_COIN)
             logger.info(f'Current coin: {self.coin_num}')
-        self.click(pages.random_click(), interval=1.2)
+        self.click(pages.reward_random_click(), interval=1.2)
         if context.last_page != pages.page_reward:
             self.device.click_record_clear()
         return BattleAction.CONTINUE

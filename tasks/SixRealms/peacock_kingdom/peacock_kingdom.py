@@ -35,7 +35,7 @@ class PeacockKingdom(BasePeacockKingdom):
             pages.page_battle_prepare: self.run_on_pk_challenge,
             pages.page_battle: self.run_on_pk_challenge,
             pages.page_battle_result: self.run_on_pk_challenge,
-            pages.page_reward: lambda: self.click(pages.random_click(), interval=1.2),
+            pages.page_reward: lambda: self.click(pages.reward_random_click(), interval=1.2),
         }
 
     def run(self):

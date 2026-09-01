@@ -129,7 +129,7 @@ class BaseAct(StateMachine, GameUi, GeneralBattle, SwitchSoul, ActivityShikigami
                                                                        battle_key=f'act_{self.climb_type}'),
             pages.page_battle: lambda: self.run_general_battle(getattr(self.conf, f'{self.climb_type}_battle_conf'),
                                                                        battle_key=f'act_{self.climb_type}'),
-            pages.page_reward: lambda: self.click(pages.random_click(ltrb=(False, False, True, False)), interval=1.5),
+            pages.page_reward: lambda: self.click(pages.reward_random_click(), interval=1.5),
         }
 
     def run(self):

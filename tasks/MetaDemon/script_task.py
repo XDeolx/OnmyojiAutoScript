@@ -84,7 +84,9 @@ class ScriptTask(GeneralBattle, SwitchSoul, GameUi, MetaDemonAssets):
                         self.start_battle()
                 case ipages.page_battle:
                     self.battle_wait(self.conf.general_battle.random_click_swipt_enable)
-                case ipages.page_reward | ipages.page_battle_result:
+                case ipages.page_reward:
+                    self.click(ipages.reward_random_click(), interval=0.6)
+                case ipages.page_battle_result:
                     self.click(ipages.random_click(), interval=0.6)
                 case _:
                     time.sleep(random.uniform(0.7, 1.4))

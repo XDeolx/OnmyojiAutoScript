@@ -55,6 +55,20 @@ def random_click(
     return [click for _ in range(random.randint(low, high))]
 
 
+def reward_random_click() -> RuleClick:
+    """按拟人化权重选择奖励页面的安全退出区域。"""
+    return random.choices(
+        (
+            GeneralBattleAssets.C_RANDOM_LEFT,
+            GeneralBattleAssets.C_RANDOM_TOP,
+            GeneralBattleAssets.C_RANDOM_RIGHT,
+            GeneralBattleAssets.C_RANDOM_BOTTOM,
+        ),
+        weights=(5, 10, 45, 40),
+        k=1,
+    )[0]
+
+
 def handle_login_page(task) -> bool:
     return LoginService(config=task.config, device=task.device).app_handle_login()
 
@@ -411,7 +425,7 @@ def handle_battle_reward_page(task) -> bool:
     """
     if task.appear_then_click(GeneralBattleAssets.I_OVER_GHOST, interval=0.8):
         return True
-    return task.click(random_click(), interval=0.8)
+    return task.click(reward_random_click(), interval=0.8)
 
 page_reward.add_enter_success_hooks(handle_battle_reward_page)
 

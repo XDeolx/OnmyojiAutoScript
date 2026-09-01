@@ -1,5 +1,6 @@
 from tasks.GameUi.action import sequence
-from tasks.GameUi.default_pages import random_click, page_battle, page_battle_prepare, page_battle_result, page_reward
+from tasks.GameUi.default_pages import (page_battle, page_battle_prepare, page_battle_result,
+                                        page_reward, random_click, reward_random_click)
 from tasks.GameUi.matcher import any_of, all_of
 from tasks.GameUi.page_definition import Page
 from tasks.GlobalGame.assets import GlobalGameAssets

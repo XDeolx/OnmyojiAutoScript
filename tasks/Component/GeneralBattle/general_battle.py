@@ -8,9 +8,10 @@ import random
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from tasks.GameUi.default_pages import random_click
+from tasks.GameUi.default_pages import random_click, reward_random_click
 from typing import Callable, Union
 
+from module.atom.click import RuleClick
 from module.atom.gif import RuleGif
 from module.atom.image import RuleImage
 from module.atom.ocr import RuleOcr
@@ -542,12 +543,16 @@ class GeneralBattle(GeneralBuff, GeneralBattleAssets):
             return False
         return context.prepare_click_timer.reached()
 
-    def _settlement_click(self, context: BattleContext) -> bool:
+    def _settlement_click(
+        self,
+        context: BattleContext,
+        click_factory: Callable[[], RuleClick] = random_click,
+    ) -> bool:
         """按当前任务声明的浮动间隔点击一次战斗结算页。"""
         timer = context.settlement_click_timer
         if timer.started() and not timer.reached():
             return False
-        self.click(random_click())
+        self.click(click_factory())
         timer.limit = self._next_settlement_click_interval()
         timer.reset()
         return True
@@ -725,7 +730,7 @@ class GeneralBattle(GeneralBuff, GeneralBattleAssets):
         self.appear_then_click(self.I_GB_SKIN_CONFIRM, interval=0.8)
         if context.last_page != page_reward:
             self.device.click_record_clear()
-        self._settlement_click(context)
+        self._settlement_click(context, reward_random_click)
         return BattleAction.CONTINUE
 
     def _handle_missing_battle_page(self, context: BattleContext, config: GeneralBattleConfig,

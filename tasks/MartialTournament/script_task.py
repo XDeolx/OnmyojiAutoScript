@@ -22,7 +22,7 @@ from tasks.Component.QuickLoadout.quick_loadout import QuickLoadout
 from tasks.Component.SwitchSoul.switch_soul import SwitchSoul
 from tasks.GameUi.game_ui import GameUi
 import tasks.MartialTournament.page as pages
-from tasks.GameUi.default_pages import random_click
+from tasks.GameUi.default_pages import reward_random_click
 from typing import Optional, Callable
 
 
@@ -138,7 +138,7 @@ class ScriptTask(GameUi, GeneralBattle, SwitchSoul, QuickLoadout, BaseActivity, 
                                                                        battle_key='mt'),
             pages.page_battle: lambda: self.run_general_battle(self.current_battle_conf,
                                                                battle_key='mt'),
-            pages.page_reward: lambda: self.click(random_click(ltrb=(False, False, True, False)), interval=1.5),
+            pages.page_reward: lambda: self.click(reward_random_click(), interval=1.5),
         }
 
     def run(self):
