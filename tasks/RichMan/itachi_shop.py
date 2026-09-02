@@ -23,7 +23,6 @@ class ItachiCoinShop(Buy, GameUi, RichManAssets):
     MAX_GIFT_PURCHASES = 3
     GIFT_OPENED = 'opened'
     GIFT_PURCHASED = 'purchased'
-    GIFT_SOLD_OUT = 'sold_out'
     GIFT_STOP = 'stop'
 
     def execute_itachi_coin_shop(self, con: ItachiCoinShopConfig) -> None:
@@ -41,17 +40,11 @@ class ItachiCoinShop(Buy, GameUi, RichManAssets):
         purchased = 0
         for _ in range(self.MAX_GIFT_PURCHASES):
             open_result = self._open_front_gift_once()
-            if open_result == self.GIFT_SOLD_OUT:
-                logger.info('当前鼬乐礼盒已售罄，继续尝试下一个')
-                continue
             if open_result != self.GIFT_OPENED:
                 logger.info('鼬乐币勾玉礼盒已购买或不可购买')
                 break
 
             purchase_result = self._buy_opened_gift()
-            if purchase_result == self.GIFT_SOLD_OUT:
-                logger.info('当前鼬乐礼盒已售罄，继续尝试下一个')
-                continue
             if purchase_result != self.GIFT_PURCHASED:
                 break
             purchased += 1
@@ -82,9 +75,6 @@ class ItachiCoinShop(Buy, GameUi, RichManAssets):
         deadline = time.monotonic() + self.GIFT_DIALOG_TIMEOUT
         while time.monotonic() < deadline:
             self.screenshot()
-            status = self._read_purchase_status()
-            if status is not None:
-                return status
             if self.appear(self.I_BUY_PLUS):
                 return self.GIFT_OPENED
         return self.GIFT_STOP
@@ -112,8 +102,6 @@ class ItachiCoinShop(Buy, GameUi, RichManAssets):
         if self.O_ITACHI_COIN_INSUFFICIENT.ocr(image) != (0, 0, 0, 0):
             logger.warning('鼬乐币不足，停止礼盒购买')
             return self.GIFT_STOP
-        if self.O_ITACHI_GIFT_SOLD_OUT.ocr(image) != (0, 0, 0, 0):
-            return self.GIFT_SOLD_OUT
         return None
 
     def _buy_opened_gift(self) -> str:

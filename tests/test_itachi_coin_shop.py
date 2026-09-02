@@ -71,27 +71,19 @@ class ItachiCoinShopTest(unittest.TestCase):
             interval=1,
         )
 
-    def test_sold_out_gift_continues_with_next_gift(self):
+    def test_unopenable_front_gift_stops_following_attempts(self):
         task = ItachiCoinShop.__new__(ItachiCoinShop)
         task.goto_page = Mock()
         task._wait_entertainment_overlay_closed = Mock(return_value=True)
-        task._open_front_gift_once = Mock(
-            side_effect=[
-                task.GIFT_SOLD_OUT,
-                task.GIFT_OPENED,
-                task.GIFT_OPENED,
-            ]
-        )
-        task._buy_opened_gift = Mock(
-            side_effect=[task.GIFT_PURCHASED, task.GIFT_PURCHASED]
-        )
+        task._open_front_gift_once = Mock(return_value=task.GIFT_STOP)
+        task._buy_opened_gift = Mock()
 
         task.execute_itachi_coin_shop(
             ItachiCoinShopConfig(itachi_coin_buy_jade=True)
         )
 
-        self.assertEqual(task._open_front_gift_once.call_count, 3)
-        self.assertEqual(task._buy_opened_gift.call_count, 2)
+        task._open_front_gift_once.assert_called_once()
+        task._buy_opened_gift.assert_not_called()
 
     def test_insufficient_coin_stops_all_gift_attempts(self):
         task = ItachiCoinShop.__new__(ItachiCoinShop)

@@ -68,8 +68,6 @@ class RichManAssets:
 	O_ITACHI_BUY_COST = RuleOcr(roi=(634,530,70,41), area=(634,530,70,41), mode="Digit", method="Default", keyword="", name="itachi_buy_cost")
 	# 鼬乐币不足提示
 	O_ITACHI_COIN_INSUFFICIENT = RuleOcr(roi=(450,180,330,130), area=(450,180,330,130), mode="Full", method="Default", keyword="鼬乐币不足", name="itachi_coin_insufficient")
-	# 鼬乐币商品已售罄提示
-	O_ITACHI_GIFT_SOLD_OUT = RuleOcr(roi=(450,180,330,130), area=(450,180,330,130), mode="Full", method="Default", keyword="已售罄", name="itachi_gift_sold_out")
 
 
 	# Image Rule Assets
@@ -412,4 +410,3 @@ class RichManAssets:
 	O_TT_BUY = RuleOcr(roi=(602,509,104,61), area=(602,509,104,61), mode="Full", method="Default", keyword="", name="tt_buy")
 	# Ocr-description 
 	O_TT_NUMBER = RuleOcr(roi=(576,415,58,49), area=(576,415,58,49), mode="Digit", method="Default", keyword="", name="tt_number")
-
