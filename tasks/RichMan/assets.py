@@ -49,6 +49,29 @@ class RichManAssets:
 	S_GUILD_STORE = RuleSwipe(roi_front=(806,460,46,35), roi_back=(754,360,90,34), mode="default", name="guild_store")
 
 
+	# Click Rule Assets
+	# 鼬乐礼盒
+	C_ITACHI_GIFT = RuleClick(roi_front=(731,250,153,55), roi_back=(731,250,153,55), name="itachi_gift")
+
+
+	# Image Rule Assets
+	# 鼬乐币商店入口
+	I_ITACHI_SHOP_ENTRY = RuleImage(roi_front=(47,635,45,40), roi_back=(42,630,55,50), threshold=0.8, method="Template matching", file="./tasks/RichMan/itachi_shop/itachi_shop_itachi_shop_entry.png")
+	# 鼬乐币商店页面
+	I_ITACHI_SHOP_CHECK = RuleImage(roi_front=(121,37,78,39), roi_back=(116,33,88,49), threshold=0.8, method="Template matching", file="./tasks/RichMan/itachi_shop/itachi_shop_itachi_shop_check.png")
+
+
+	# Ocr Rule Assets
+	# 当前鼬乐币
+	O_ITACHI_COIN = RuleOcr(roi=(1081,21,134,38), area=(1081,21,134,38), mode="DigitCounter", method="Default", keyword="", name="itachi_coin")
+	# 礼盒购买价格
+	O_ITACHI_BUY_COST = RuleOcr(roi=(634,530,70,41), area=(634,530,70,41), mode="Digit", method="Default", keyword="", name="itachi_buy_cost")
+	# 鼬乐币不足提示
+	O_ITACHI_COIN_INSUFFICIENT = RuleOcr(roi=(450,180,330,130), area=(450,180,330,130), mode="Full", method="Default", keyword="鼬乐币不足", name="itachi_coin_insufficient")
+	# 鼬乐币商品已售罄提示
+	O_ITACHI_GIFT_SOLD_OUT = RuleOcr(roi=(450,180,330,130), area=(450,180,330,130), mode="Full", method="Default", keyword="已售罄", name="itachi_gift_sold_out")
+
+
 	# Image Rule Assets
 	# 兑换随机御魂 
 	I_BL_BUY_SOULS = RuleImage(roi_front=(197,476,90,38), roi_back=(197,476,90,38), threshold=0.8, method="Template matching", file="./tasks/RichMan/mall/bondlings/bondlings_bl_buy_souls.png")
@@ -389,5 +412,4 @@ class RichManAssets:
 	O_TT_BUY = RuleOcr(roi=(602,509,104,61), area=(602,509,104,61), mode="Full", method="Default", keyword="", name="tt_buy")
 	# Ocr-description 
 	O_TT_NUMBER = RuleOcr(roi=(576,415,58,49), area=(576,415,58,49), mode="Digit", method="Default", keyword="", name="tt_number")
-
 

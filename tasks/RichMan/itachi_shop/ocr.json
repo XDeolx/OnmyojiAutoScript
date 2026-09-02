@@ -1,0 +1,38 @@
+[
+  {
+    "itemName": "itachi_coin",
+    "roiFront": "1081,21,134,38",
+    "roiBack": "1081,21,134,38",
+    "mode": "DigitCounter",
+    "method": "Default",
+    "keyword": "",
+    "description": "当前鼬乐币"
+  },
+  {
+    "itemName": "itachi_buy_cost",
+    "roiFront": "634,530,70,41",
+    "roiBack": "634,530,70,41",
+    "mode": "Digit",
+    "method": "Default",
+    "keyword": "",
+    "description": "礼盒购买价格"
+  },
+  {
+    "itemName": "itachi_coin_insufficient",
+    "roiFront": "450,180,330,130",
+    "roiBack": "450,180,330,130",
+    "mode": "Full",
+    "method": "Default",
+    "keyword": "鼬乐币不足",
+    "description": "鼬乐币不足提示"
+  },
+  {
+    "itemName": "itachi_gift_sold_out",
+    "roiFront": "450,180,330,130",
+    "roiBack": "450,180,330,130",
+    "mode": "Full",
+    "method": "Default",
+    "keyword": "已售罄",
+    "description": "鼬乐币商品已售罄提示"
+  }
+]

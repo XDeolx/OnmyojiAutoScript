@@ -105,8 +105,20 @@ class GuildStore(BaseModel):
     skin_ticket: int = Field(title='Skin Ticket', default=0, description='skin_ticket_help')
 
 
+class ItachiCoinShop(BaseModel):
+    itachi_coin_buy_jade: bool = Field(
+        title='购买勾玉礼盒',
+        default=False,
+        description='使用鼬乐币购买商店内最多三个勾玉礼盒，默认关闭',
+    )
+
+
 class RichMan(ConfigBase):
     scheduler: Scheduler = Field(default_factory=Scheduler)
+    itachi_coin_shop: ItachiCoinShop = Field(
+        title='鼬乐币商店',
+        default_factory=ItachiCoinShop,
+    )
     special_room: SpecialRoom = Field(default_factory=SpecialRoom)
     honor_room: HonorRoom = Field(default_factory=HonorRoom)
     friendship_points: FriendshipPoints = Field(default_factory=FriendshipPoints)
