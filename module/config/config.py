@@ -183,6 +183,7 @@ class Config(ConfigState, ConfigManual, ConfigWatcher, ConfigMenu):
     ) -> dict:
         now = (now or datetime.now()).replace(microsecond=0)
         weekly_schedule = WeeklySchedule(self.config_name)
+        weekly_schedule.ensure_week_refresh(now)
         data = weekly_schedule.load()
         result = {
             'applied': [],
