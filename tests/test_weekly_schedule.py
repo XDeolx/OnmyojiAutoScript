@@ -184,8 +184,36 @@ class WeeklyScheduleTest(unittest.TestCase):
 
         self.assertEqual(by_task['AreaBoss'], '08:10:00')
         self.assertEqual(by_task['Restart'], '09:00:00')
-        self.assertEqual(by_task['Frozen'], '05:00:00')
+        self.assertNotIn('Frozen', by_task)
         self.assertEqual(by_task['AfterFreeze'], '10:15:00')
+        self.assertEqual(issues, [{
+            'task': 'Frozen',
+            'weekday': 3,
+            'base_time': '05:00:00',
+            'reason': 'base_time_in_freeze',
+        }])
+
+    def test_week_refresh_moves_a_frozen_base_time_outside_freeze(self):
+        generated, issues = WeeklySchedule.generate_week_refresh_entries(
+            [{'task': 'NearFreezeEnd', 'weekday': 3, 'time': '09:55:00'}],
+            {
+                'enabled': True,
+                'min_offset_seconds': 600,
+                'max_offset_seconds': 600,
+                'excluded_tasks': [],
+                'freeze_windows': [
+                    {'weekday': 3, 'start': '04:00:00', 'end': '10:00:00'},
+                ],
+                'boundaries': [],
+            },
+            chooser=lambda values: values[0],
+        )
+
+        self.assertEqual(generated, [{
+            'task': 'NearFreezeEnd',
+            'weekday': 3,
+            'time': '10:05:00',
+        }])
         self.assertEqual(issues, [])
 
     def test_week_refresh_keeps_base_time_when_boundary_has_no_candidate(self):

@@ -327,7 +327,15 @@ class WeeklySchedule:
                 start <= base_seconds < end
                 for start, end in freeze_windows
             )
-            if task_key in excluded or base_is_frozen:
+            if task_key in excluded:
+                if base_is_frozen:
+                    issues.append({
+                        'task': entry['task'],
+                        'weekday': weekday,
+                        'base_time': entry['time'],
+                        'reason': 'base_time_in_freeze',
+                    })
+                    continue
                 target_seconds = base_seconds
             else:
                 boundary_start, boundary_end = boundaries.get(
@@ -362,13 +370,19 @@ class WeeklySchedule:
                 if available:
                     target_seconds = choose(available)
                 else:
-                    target_seconds = base_seconds
                     issues.append({
                         'task': entry['task'],
                         'weekday': weekday,
                         'base_time': entry['time'],
-                        'reason': 'no_time_within_boundary',
+                        'reason': (
+                            'base_time_in_freeze'
+                            if base_is_frozen
+                            else 'no_time_within_boundary'
+                        ),
                     })
+                    if base_is_frozen:
+                        continue
+                    target_seconds = base_seconds
             occupied.add((weekday, target_seconds))
             generated.append({
                 'task': entry['task'],
