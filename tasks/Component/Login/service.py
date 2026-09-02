@@ -17,6 +17,14 @@ class LoginService(BaseTask, RestartAssets, GameUiAssets):
         self.character = self.config.restart.login_character_config.character
         self.O_LOGIN_SPECIFIC_SERVE.keyword = self.character
 
+    def _click_enter_game(self) -> bool:
+        """兼容横排旧登录页与竖排新登录页的进入按钮。"""
+        for rule in (self.O_LOGIN_ENTER_GAME, self.O_LOGIN_ENTER_GAME_VERTICAL):
+            if self.ocr_appear_click(rule, interval=3):
+                logger.info(f'Enter game button matched: {rule.name}')
+                return True
+        return False
+
     def _app_handle_login(self) -> bool:
         """
         最终是在庭院界面
@@ -124,7 +132,7 @@ class LoginService(BaseTask, RestartAssets, GameUiAssets):
                 if self.click(self.C_LOGIN_ANIMATION_CENTER, interval=5):  # 点击屏幕中央触发跳过显示
                     skip_click_mx_cnt -= 1
 
-            if self.ocr_appear_click(self.O_LOGIN_ENTER_GAME, interval=3):
+            if self._click_enter_game():
                 skip_login_animation = False  # 进入登录页面后不再处理登录动画逻辑
                 self.wait_until_appear(self.I_LOGIN_SPECIFIC_SERVE, True, wait_time=5)
                 continue
