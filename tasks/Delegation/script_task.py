@@ -121,6 +121,17 @@ class ScriptTask(GameUi, DelegationAssets):
                 continue
             if check_timer.reached():
                 break
+            if self.ocr_appear(self.O_D_DONE_CARD, interval=1):
+                # The status ribbon itself is not clickable. Click the body of
+                # the first completed card while keeping the detected row.
+                _, y, _, _ = self.O_D_DONE_CARD.area
+                self.device.click(
+                    x=1165,
+                    y=int(y + 55),
+                    control_name='D_DONE_CARD',
+                )
+                check_timer.reset()
+                continue
             if self.ocr_appear_click(self.O_D_DONE, interval=1):
                 check_timer.reset()
                 continue
@@ -136,7 +147,5 @@ if __name__ == '__main__':
 
     # t.delegate_one('弥助的画')
     t.run()
-
-
 
 

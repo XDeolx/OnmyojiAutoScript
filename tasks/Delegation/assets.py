@@ -69,7 +69,7 @@ class DelegationAssets:
 
 
 	# Ocr Rule Assets
-	# 完成 
-	O_D_DONE = RuleOcr(roi=(675,129,441,517), area=(675,129,441,517), mode="Full", method="Default", keyword="完成", name="d_done")
-
-
+	# 地图上的完成标记
+	O_D_DONE = RuleOcr(roi=(0,100,950,550), area=(0,100,950,550), mode="Full", method="Default", keyword="完成", name="d_done")
+	# 右侧列表的完成状态
+	O_D_DONE_CARD = RuleOcr(roi=(950,100,330,550), area=(950,100,330,550), mode="Full", method="Default", keyword="完成", name="d_done_card")
