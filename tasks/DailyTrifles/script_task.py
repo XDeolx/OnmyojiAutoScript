@@ -414,8 +414,56 @@ class ScriptTask(GameUi, Summon, DailyTriflesAssets):
             logger.warning('There is no gift sign')
             return
 
-        if self.ui_get_reward(self.I_GIFT_SIGN, click_interval=2.5):
+        if not self.appear_then_click(self.I_GIFT_SIGN, interval=2.5):
+            logger.warning('Failed to claim gift sign')
+            return
+
+        if self._wait_store_sign_result():
             logger.info('Get reward of gift sign')
+
+    def _wait_store_sign_result(self) -> bool:
+        """Handle both the legacy reward page and the anniversary login-gift panel."""
+        wait_timer = Timer(10).start()
+        while not wait_timer.reached():
+            self.screenshot()
+            if self.appear(self.I_DAILY_LOGIN_GIFT_PANEL):
+                logger.info('Daily login gift panel opened, return to gift room')
+                return self._close_daily_login_gift_panel()
+
+            if self.ui_reward_appear_click():
+                reward_timer = Timer(5).start()
+                while not reward_timer.reached():
+                    self.screenshot()
+                    if not self.appear(self.I_UI_REWARD, threshold=0.6):
+                        return True
+                    self.ui_reward_appear_click()
+                logger.warning('Gift sign reward page did not close in time')
+                return False
+
+            sleep(0.2)
+
+        logger.warning('Gift sign result did not appear in time')
+        return False
+
+    def _close_daily_login_gift_panel(self) -> bool:
+        """Return from the staged daily-login gift panel before leaving the gift room."""
+        close_timer = Timer(5).start()
+        clicked = False
+        while not close_timer.reached():
+            self.screenshot()
+            if not self.appear(self.I_DAILY_LOGIN_GIFT_PANEL):
+                if clicked:
+                    logger.info('Daily login gift panel closed')
+                return True
+
+            if self.appear_then_click(self.I_UI_BACK_YELLOW, interval=0.8):
+                clicked = True
+                continue
+
+            sleep(0.2)
+
+        logger.warning('Daily login gift panel did not close in time')
+        return False
 
     def run_buy_sushi(self):
         logger.hr('store sushi', 2)
@@ -555,4 +603,3 @@ if __name__ == '__main__':
     t = ScriptTask(c, d)
 
     t.run_guild_donate()
-

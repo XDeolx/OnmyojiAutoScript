@@ -139,6 +139,8 @@ class DailyTriflesAssets:
 	I_GIFT_RECOMMEND = RuleImage(roi_front=(1183,454,53,64), roi_back=(1162,77,97,545), threshold=0.7, method="Template matching", file="./tasks/DailyTrifles/store/store_gift_recommend.png")
 	# 免费一抽领黑蛋 
 	I_GIFT_SIGN = RuleImage(roi_front=(186,191,115,83), roi_back=(130,129,891,473), threshold=0.8, method="Template matching", file="./tasks/DailyTrifles/store/store_gift_sign.png")
+	# 每日登录礼包弹层
+	I_DAILY_LOGIN_GIFT_PANEL = RuleImage(roi_front=(200,57,335,56), roi_back=(160,45,430,90), threshold=0.8, method="Template matching", file="./tasks/DailyTrifles/store/store_daily_login_gift_panel.png")
 	# 体力 
 	I_SPECIAL_SUSHI = RuleImage(roi_front=(180,130,800,460), roi_back=(180,130,800,460), threshold=0.8, method="Template matching", file="./tasks/DailyTrifles/store/store_sushi.png")
 	# 购买时货币类型为勾玉 
@@ -174,5 +176,4 @@ class DailyTriflesAssets:
 	O_SELECT_SM3 = RuleOcr(roi=(26,304,45,38), area=(26,304,45,38), mode="Single", method="Default", keyword="", name="select_sm3")
 	# description 
 	O_SELECT_SM4 = RuleOcr(roi=(26,397,45,38), area=(26,397,45,38), mode="Single", method="Default", keyword="", name="select_sm4")
-
 

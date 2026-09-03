@@ -109,13 +109,125 @@ class BaseAct(StateMachine, GameUi, GeneralBattle, SwitchSoul, ActivityShikigami
         return self.I_ACT_FIRE
 
     def _handle_result(self, context: BattleContext, config: GeneralBattleConfig) -> BattleAction:
+        if not self._fatigue_settlement_click_ready(context):
+            return BattleAction.CONTINUE
         if self.climb_type == 'boss':
             self.appear_then_click(self.I_UI_BACK_RED, interval=1.5)
         return super()._handle_result(context, config)
 
+    def _handle_reward(self, context: BattleContext, config: GeneralBattleConfig) -> BattleAction:
+        if not self._fatigue_settlement_click_ready(context):
+            return BattleAction.CONTINUE
+        return super()._handle_reward(context, config)
+
+    def _reset_round_context(self, context: BattleContext, config: GeneralBattleConfig, *, continuous_count: int) -> None:
+        super()._reset_round_context(context, config, continuous_count=continuous_count)
+        for attribute in (
+            'fatigue_settlement_delay_timer',
+            'fatigue_settlement_delay',
+            'fatigue_settlement_delay_logged',
+        ):
+            if hasattr(context, attribute):
+                delattr(context, attribute)
+
     def before_run(self):
+        self._fatigue_battle_count = 0
         pages.page_battle_result = self.navigator.resolve_page(pages.page_battle_result)
         pages.page_battle_result.recognizer = pages.any_of(self.I_UI_BACK_RED, pages.page_battle_result.recognizer)
+
+    def _fatigue_rest_enabled(self) -> bool:
+        return self.conf.general_climb.fatigue_rest_enable
+
+    def _apply_fatigue_rest(self):
+        """在下一场挑战前，处理已经完成的疲劳周期。"""
+        if not self._fatigue_rest_enabled():
+            return
+
+        config = self.conf.general_climb
+        completed = self._fatigue_battle_count
+        if completed < config.fatigue_rest_battle_count:
+            return
+
+        rest_minutes = round(random.uniform(
+            config.fatigue_rest_minutes_min,
+            config.fatigue_rest_minutes_max,
+        ), 2)
+        rest_seconds = rest_minutes * 60
+        logger.info(
+            'Climb fatigue rest: '
+            f'completed={completed}/{config.fatigue_rest_battle_count}, '
+            f'duration={rest_minutes:.2f}m'
+        )
+        rest_started_at = datetime.now()
+        time.sleep(rest_seconds)
+        actual_rest = datetime.now() - rest_started_at
+        # 疲劳休息不占用活动的有效运行时长。
+        self.start_time += actual_rest
+        self._fatigue_battle_count = 0
+        logger.info(
+            'Climb fatigue rest finished: '
+            f'actual_duration={actual_rest.total_seconds() / 60:.2f}m, cycle reset'
+        )
+
+    def _apply_fatigue_battle_delay(self):
+        """按当前疲劳进度，为下一场挑战生成渐进且带浮动的点击等待。"""
+        if not self._fatigue_rest_enabled():
+            return 0.0
+
+        config = self.conf.general_climb
+        cycle_count = config.fatigue_rest_battle_count
+        progress = min(self._fatigue_battle_count, cycle_count - 1) / max(cycle_count - 1, 1)
+        center = config.fatigue_rest_delay_min + (
+            config.fatigue_rest_delay_max - config.fatigue_rest_delay_min
+        ) * progress
+        spread = min(0.8, max(0.1, (config.fatigue_rest_delay_max - config.fatigue_rest_delay_min) * 0.2))
+        lower = max(config.fatigue_rest_delay_min, center - spread)
+        upper = min(config.fatigue_rest_delay_max, center + spread)
+        delay = round(random.triangular(lower, upper, center), 2)
+        logger.info(
+            'Climb fatigue delay: '
+            f'progress={self._fatigue_battle_count + 1}/{cycle_count}, '
+            f'delay={delay:.2f}s, range={lower:.2f}-{upper:.2f}s'
+        )
+        time.sleep(delay)
+        return delay
+
+    def _fatigue_settlement_click_ready(self, context: BattleContext) -> bool:
+        """在每轮结算第一次退出点击前应用疲劳模式的随机等待。"""
+        if not self._fatigue_rest_enabled():
+            return True
+
+        timer = getattr(context, 'fatigue_settlement_delay_timer', None)
+        if timer is None:
+            config = self.conf.general_climb
+            delay = round(random.uniform(
+                config.fatigue_rest_settlement_delay_min,
+                config.fatigue_rest_settlement_delay_max,
+            ), 2)
+            context.fatigue_settlement_delay = delay
+            context.fatigue_settlement_delay_timer = Timer(delay).start()
+            logger.info(f'Climb fatigue settlement delay: delay={delay:.2f}s')
+            return False
+
+        if not timer.reached():
+            return False
+
+        if not getattr(context, 'fatigue_settlement_delay_logged', False):
+            logger.info(
+                'Climb fatigue settlement delay finished: '
+                f'delay={context.fatigue_settlement_delay:.2f}s'
+            )
+            context.fatigue_settlement_delay_logged = True
+        return True
+
+    def _record_fatigue_battle(self):
+        if not self._fatigue_rest_enabled():
+            return
+        self._fatigue_battle_count += 1
+        logger.info(
+            'Climb fatigue progress: '
+            f'completed={self._fatigue_battle_count}/{self.conf.general_climb.fatigue_rest_battle_count}'
+        )
 
     @property
     def act_page_handle_dict(self) -> dict[pages.Page, Callable]:
@@ -185,13 +297,17 @@ class BaseAct(StateMachine, GameUi, GeneralBattle, SwitchSoul, ActivityShikigami
         if not self.check_tickets_enough():
             logger.warning(f'No tickets left, wait for next time')
             raise TicketsNotEnough
+        self._apply_fatigue_rest()
         self.switch_soul(self.I_BATTLE_MAIN_TO_RECORDS)
-        if self.conf.general_climb.random_sleep:
+        if self._fatigue_rest_enabled():
+            self._apply_fatigue_battle_delay()
+        elif self.conf.general_climb.random_sleep:
             random_sleep(probability=0.2)
         if self.enter_battle():
             self.count_map[self.climb_type] += 1
             self.run_general_battle(getattr(self.conf, f'{self.climb_type}_battle_conf'),
                                     battle_key=f'act_{self.climb_type}')
+            self._record_fatigue_battle()
 
     def enter_battle(self):
         click_times, max_times = 0, random.randint(3, 5)

@@ -945,7 +945,15 @@
       "ap100_limit": 20,
       "run_sequence": "pass,ap,ap100,boss",
       "active_souls_clean": false,
-      "random_sleep": false
+      "random_sleep": false,
+      "fatigue_rest_enable": false,
+      "fatigue_rest_battle_count": 60,
+      "fatigue_rest_delay_min": 1.0,
+      "fatigue_rest_delay_max": 5.0,
+      "fatigue_rest_minutes_min": 5,
+      "fatigue_rest_minutes_max": 10,
+      "fatigue_rest_settlement_delay_min": 1.0,
+      "fatigue_rest_settlement_delay_max": 3.0
     },
     "rich_man": {
       "buy_ap": false,

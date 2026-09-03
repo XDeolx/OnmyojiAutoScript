@@ -4,7 +4,7 @@
 from datetime import timedelta, time
 from module.logger import logger
 
-from pydantic import BaseModel, Field, model_validator, validator
+from pydantic import BaseModel, Field, validator
 
 from tasks.Component.GeneralBattle.config_general_battle import GeneralBattleConfig
 from tasks.Component.config_scheduler import Scheduler
@@ -32,6 +32,39 @@ class GeneralClimb(ConfigBase):
     active_souls_clean: bool = Field(default=False, description='是否运行结束后清理御魂')
     # 点击战斗随机休息
     random_sleep: bool = Field(default=False, description='是否启用在点击战斗前随机休息')
+    fatigue_rest_enable: bool = Field(default=False, description='fatigue_rest_enable_help')
+    fatigue_rest_battle_count: int = Field(default=60, ge=10, le=500,
+                                            description='fatigue_rest_battle_count_help')
+    fatigue_rest_delay_min: float = Field(default=1.0, ge=0.0, le=30.0,
+                                           description='fatigue_rest_delay_min_help')
+    fatigue_rest_delay_max: float = Field(default=5.0, ge=0.1, le=30.0,
+                                           description='fatigue_rest_delay_max_help')
+    fatigue_rest_minutes_min: int = Field(default=5, ge=1, le=60,
+                                          description='fatigue_rest_minutes_min_help')
+    fatigue_rest_minutes_max: int = Field(default=10, ge=1, le=60,
+                                          description='fatigue_rest_minutes_max_help')
+    fatigue_rest_settlement_delay_min: float = Field(default=1.0, ge=0.0, le=30.0,
+                                                      description='fatigue_rest_settlement_delay_min_help')
+    fatigue_rest_settlement_delay_max: float = Field(default=3.0, ge=0.1, le=30.0,
+                                                      description='fatigue_rest_settlement_delay_max_help')
+
+    @validator('fatigue_rest_delay_max')
+    def validate_fatigue_delay_range(cls, value, values):
+        if value < values.get('fatigue_rest_delay_min', value):
+            raise ValueError('疲劳点击延迟下限不能大于上限')
+        return value
+
+    @validator('fatigue_rest_minutes_max')
+    def validate_fatigue_rest_range(cls, value, values):
+        if value < values.get('fatigue_rest_minutes_min', value):
+            raise ValueError('疲劳休息时长下限不能大于上限')
+        return value
+
+    @validator('fatigue_rest_settlement_delay_max')
+    def validate_fatigue_settlement_delay_range(cls, value, values):
+        if value < values.get('fatigue_rest_settlement_delay_min', value):
+            raise ValueError('疲劳结算点击延迟下限不能大于上限')
+        return value
 
     @property
     def limit_time_v(self) -> timedelta:

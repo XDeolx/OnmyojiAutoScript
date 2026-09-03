@@ -15,18 +15,28 @@ class NormalClimbAct(BaseAct):
     def before_run(self):
         super().before_run()
         page_act = self.navigator.resolve_page(pages.page_act)
+        page_climb_main = self.navigator.resolve_page(pages.page_climb_main)
         page_act_pass = self.navigator.resolve_page(pages.page_act_pass)
         page_act_ap = self.navigator.resolve_page(pages.page_act_ap)
-        # 体力爬塔和主界面关联
-        page_act.connect(page_act_ap, ActivityShikigamiAssets.I_TO_BATTLE_MAIN, key="page_act->page_act_ap")
+        page_act_ap100 = self.navigator.resolve_page(pages.page_act_ap100)
+        page_act_boss = self.navigator.resolve_page(pages.page_act_boss)
+        # 新版活动先从活动主页进入爬塔选择页，再选择对应战斗类型。
+        page_act.connect(page_climb_main, ActivityShikigamiAssets.I_TO_BATTLE_MAIN,
+                         key="page_act->page_climb_main")
+        page_climb_main.connect(page_act_ap, ActivityShikigamiAssets.I_TO_BATTLE_CLIMB,
+                                key="page_climb_main->page_act_ap")
         # 体力爬塔进入是门票则切换
         page_act_ap.add_enter_failure_hooks(pages.conditional_action(
             condition=ActivityShikigamiAssets.I_CLIMB_MODE_PASS, action=ActivityShikigamiAssets.I_CLIMB_MODE_SWITCH))
-        # 门票爬塔和主界面关联
-        page_act.connect(page_act_pass, ActivityShikigamiAssets.I_TO_BATTLE_MAIN, key="page_act->page_act_pass")
+        page_climb_main.connect(page_act_pass, ActivityShikigamiAssets.I_TO_BATTLE_CLIMB,
+                                key="page_climb_main->page_act_pass")
         # 门票爬塔进入是体力则切换
         page_act_pass.add_enter_failure_hooks(pages.conditional_action(
             condition=ActivityShikigamiAssets.I_CLIMB_MODE_AP, action=ActivityShikigamiAssets.I_CLIMB_MODE_SWITCH))
+        page_climb_main.connect(page_act_ap100, ActivityShikigamiAssets.I_TO_BATTLE_CLIMB,
+                                key="page_climb_main->page_act_ap100")
+        page_climb_main.connect(page_act_boss, ActivityShikigamiAssets.I_TO_BATTLE_BOSS,
+                                key="page_climb_main->page_act_boss")
         # 门票和体力互相切换
         page_act_pass.connect(page_act_ap, ActivityShikigamiAssets.I_CLIMB_MODE_SWITCH, key="page_act_pass->page_act_ap")
         page_act_ap.connect(page_act_pass, ActivityShikigamiAssets.I_CLIMB_MODE_SWITCH, key="page_act_ap->page_act_pass")
