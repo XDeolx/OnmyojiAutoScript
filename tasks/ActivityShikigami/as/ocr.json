@@ -63,6 +63,24 @@
     "description": "100体活动门票检测"
   },
   {
+    "itemName": "remain_penta_pass",
+    "roiFront": "948,13,93,34",
+    "roiBack": "948,13,93,34",
+    "mode": "Digit",
+    "method": "Default",
+    "keyword": "",
+    "description": "五倍卷剩余数量"
+  },
+  {
+    "itemName": "remain_ap_pass",
+    "roiFront": "567,14,93,34",
+    "roiBack": "567,14,93,34",
+    "mode": "Digit",
+    "method": "Default",
+    "keyword": "",
+    "description": "剩余体力门票"
+  },
+  {
     "itemName": "enter_ap100",
     "roiFront": "67,99,92,359",
     "roiBack": "67,99,92,359",

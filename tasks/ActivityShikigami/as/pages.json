@@ -1,8 +1,8 @@
 [
   {
     "itemName": "main_goto_act",
-    "imageName": "as_main_goto_act.png",
-    "roiFront": "1188,296,35,28",
+    "imageName": "page/as_main_goto_act.png",
+    "roiFront": "1188,304,35,28",
     "roiBack": "1164,134,83,393",
     "method": "Template matching",
     "threshold": 0.7,
@@ -10,12 +10,39 @@
   },
   {
     "itemName": "skip_button",
-    "imageName": "as_skip_button.png",
+    "imageName": "page/as_skip_button.png",
     "roiFront": "1159,37,51,22",
     "roiBack": "1141,27,86,43",
     "method": "Template matching",
     "threshold": 0.8,
     "description": "右上跳过按钮"
+  },
+  {
+    "itemName": "check_battle_main",
+    "imageName": "page/as_check_battle_main.png",
+    "roiFront": "151,18,141,41",
+    "roiBack": "141,0,192,69",
+    "method": "Template matching",
+    "threshold": 0.8,
+    "description": "活动主界面标志"
+  },
+  {
+    "itemName": "activity_award",
+    "imageName": "page/as_activity_award.png",
+    "roiFront": "475,234,324,40",
+    "roiBack": "448,169,372,114",
+    "method": "Template matching",
+    "threshold": 0.8,
+    "description": "活动奖励附属页面"
+  },
+  {
+    "itemName": "activity_signin_close",
+    "imageName": "page/as_activity_signin_close.png",
+    "roiFront": "1137,179,40,32",
+    "roiBack": "1113,150,94,85",
+    "method": "Template matching",
+    "threshold": 0.8,
+    "description": "活动签到附属页面关闭按钮"
   },
   {
     "itemName": "to_battle_main",
@@ -91,7 +118,7 @@
   },
   {
     "itemName": "confirm_skip",
-    "imageName": "as_confirm_skip.png",
+    "imageName": "page/as_confirm_skip.png",
     "roiFront": "707,442,137,38",
     "roiBack": "656,397,231,124",
     "method": "Template matching",

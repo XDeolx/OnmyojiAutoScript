@@ -88,5 +88,41 @@
     "method": "Template matching",
     "threshold": 0.8,
     "description": "boss挑战标志"
+  },
+  {
+    "itemName": "fight_penta_use",
+    "imageName": "climb/climb_fight_penta_use.png",
+    "roiFront": "867,650,31,30",
+    "roiBack": "755,631,330,86",
+    "method": "Template matching",
+    "threshold": 0.8,
+    "description": "使用五倍卷"
+  },
+  {
+    "itemName": "fight_penta_disuse",
+    "imageName": "climb/climb_fight_penta_disuse.png",
+    "roiFront": "867,650,31,30",
+    "roiBack": "746,629,330,86",
+    "method": "Template matching",
+    "threshold": 0.8,
+    "description": "不使用五倍卷"
+  },
+  {
+    "itemName": "check_climb_hard",
+    "imageName": "climb/climb_check_climb_hard.png",
+    "roiFront": "398,149,38,155",
+    "roiBack": "393,144,48,165",
+    "method": "Template matching",
+    "threshold": 0.8,
+    "description": "门票困难模式标志"
+  },
+  {
+    "itemName": "check_climb_easy",
+    "imageName": "climb/climb_check_climb_easy.png",
+    "roiFront": "398,149,38,155",
+    "roiBack": "393,144,48,165",
+    "method": "Template matching",
+    "threshold": 0.8,
+    "description": "门票简单模式标志"
   }
 ]

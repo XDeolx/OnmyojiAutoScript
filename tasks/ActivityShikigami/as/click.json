@@ -28,5 +28,17 @@
     "roiFront": "42,94,1207,543",
     "roiBack": "42,94,1207,543",
     "description": "description"
+  },
+  {
+    "itemName": "cl_select_easy",
+    "roiFront": "1166,171,71,63",
+    "roiBack": "1166,171,71,63",
+    "description": "门票简单模式"
+  },
+  {
+    "itemName": "cl_select_hard",
+    "roiFront": "1121,340,71,63",
+    "roiBack": "1121,340,71,63",
+    "description": "门票困难模式"
   }
 ]
