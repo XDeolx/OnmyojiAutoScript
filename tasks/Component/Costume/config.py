@@ -24,6 +24,7 @@ class MainType(str, Enum):
     COSTUME_MAIN_14 = 'costume_main_14'  # 雪月华庭
     COSTUME_MAIN_15 = 'costume_main_15'  # 茨心乐园
     COSTUME_MAIN_16 = 'costume_main_16'  # 琦梦茨庭
+    COSTUME_MAIN_17 = 'costume_main_17'  # 狐栖归处
 
 # 结界皮肤
 class RealmType(str, Enum):
@@ -49,6 +50,7 @@ class ShikigamiType(str, Enum):
     COSTUME_SHIKIGAMI_9 = 'costume_shikigami_9'  # 眠鹿之森
     COSTUME_SHIKIGAMI_10 = 'costume_shikigami_10'  # 今宵胧明
     COSTUME_SHIKIGAMI_11 = 'costume_shikigami_11'  # 花札幕台
+    COSTUME_SHIKIGAMI_12 = 'costume_shikigami_12'  # 拾光之窗
 
 # 签到主题
 class SignType(str, Enum):

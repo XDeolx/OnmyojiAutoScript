@@ -26,7 +26,7 @@ main_costume_model = {
         'I_HARVEST_MAIL': f'I_HARVEST_MAIL_{i}',
         'I_HARVEST_SOUL': f'I_HARVEST_SOUL_{i}',
         'I_HARVEST_GUILD_REWARD': f'I_HARVEST_GUILD_REWARD_{i}'
-    } for i in range(1, 17)
+    } for i in range(1, 18)
 }
 
 # 战斗主题（使用循环处理常规情况 + 特例处理）
@@ -66,7 +66,7 @@ shikigami_costume_model = {
         'I_ST_SOULS': f'I_ST_SOULS_{i}',
         'I_ST_REPLACE': f'I_ST_REPLACE_{i}',
     }
-    for i in range(1, 12)  # 目前支持 COSTUME_SHIKIGAMI_1 到 COSTUME_SHIKIGAMI_11
+    for i in range(1, 13)  # 目前支持 COSTUME_SHIKIGAMI_1 到 COSTUME_SHIKIGAMI_12
 }
 
 # 庭院事务皮肤
