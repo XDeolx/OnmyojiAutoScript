@@ -142,6 +142,11 @@ class ScriptTask(GameUi, GeneralBattle, SwitchSoul, QuickLoadout, BaseActivity, 
         }
 
     def run(self):
+        logger.info('MartialTournament event has ended, skip scheduled run')
+        self.set_next_run(task="MartialTournament", success=True)
+        raise TaskEnd
+
+    def run_legacy_event(self):
         self.before_run()
         try:
             for mode in self.conf.general_climb.sequence_list:
