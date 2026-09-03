@@ -107,3 +107,24 @@ class ActivityShikigamiFatigueTest(unittest.TestCase):
                 fatigue_rest_settlement_delay_min=3,
                 fatigue_rest_settlement_delay_max=1,
             )
+
+    def test_pass_limit_keeps_old_single_value_as_easy_mode(self):
+        config = GeneralClimb(pass_limit=50)
+
+        self.assertEqual(config.pass_limit, '50')
+        self.assertEqual(config.pass_limits_v, (50, 0))
+        self.assertEqual(config.pass_limit_for('easy'), 50)
+        self.assertEqual(config.pass_limit_for('hard'), 0)
+        self.assertEqual(config.run_sequence_v[0], 'pass')
+
+    def test_pass_limit_supports_easy_and_hard_modes(self):
+        config = GeneralClimb(pass_limit='20,10')
+
+        self.assertEqual(config.pass_limits_v, (20, 10))
+        self.assertEqual(config.limit_for('pass'), 30)
+
+    def test_pass_limit_rejects_invalid_mode_counts(self):
+        with self.assertRaises(ValidationError):
+            GeneralClimb(pass_limit='20,')
+        with self.assertRaises(ValidationError):
+            GeneralClimb(pass_limit='easy,10')

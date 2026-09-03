@@ -14,7 +14,7 @@ from typing import Optional
 
 class GeneralClimb(ConfigBase):
     limit_time: Time = Field(default=Time(hour=1, minute=30), description='总限制时间')
-    pass_limit: int = Field(default=50)
+    pass_limit: str = Field(default='50', description='pass_limit_help')
     ap_limit: int = Field(default=300)
     boss_limit: int = Field(default=20)
     ap100_limit: int = Field(default=20)
@@ -32,6 +32,7 @@ class GeneralClimb(ConfigBase):
     active_souls_clean: bool = Field(default=False, description='是否运行结束后清理御魂')
     # 点击战斗随机休息
     random_sleep: bool = Field(default=False, description='是否启用在点击战斗前随机休息')
+    use_penta_pass: bool = Field(default=False, description='use_penta_pass_help')
     fatigue_rest_enable: bool = Field(default=False, description='fatigue_rest_enable_help')
     fatigue_rest_battle_count: int = Field(default=60, ge=10, le=500,
                                             description='fatigue_rest_battle_count_help')
@@ -78,7 +79,37 @@ class GeneralClimb(ConfigBase):
         """得到limit>0且配置好的运行顺序序列"""
         self.valid_run_sequence()
         str_list = [climb_type.strip() for climb_type in self.run_sequence.split(',')]
-        return [climb_type for climb_type in str_list if getattr(self, f'{climb_type}_limit', 0) > 0]
+        return [climb_type for climb_type in str_list if self.limit_for(climb_type) > 0]
+
+    @property
+    def pass_limits_v(self) -> tuple[int, int]:
+        """返回门票简单、困难模式的次数限制。"""
+        easy_limit, *hard_limit = (int(part) for part in self.pass_limit.split(','))
+        return easy_limit, hard_limit[0] if hard_limit else 0
+
+    def pass_limit_for(self, mode: str) -> int:
+        easy_limit, hard_limit = self.pass_limits_v
+        if mode == 'easy':
+            return easy_limit
+        if mode == 'hard':
+            return hard_limit
+        raise ValueError(f'Unsupported pass mode: {mode}')
+
+    def limit_for(self, climb_type: str) -> int:
+        if climb_type == 'pass':
+            return sum(self.pass_limits_v)
+        return getattr(self, f'{climb_type}_limit', 0)
+
+    @validator('pass_limit', pre=True, always=True)
+    def parse_pass_limit(cls, value):
+        """兼容旧的单个次数和“简单次数,困难次数”写法。"""
+        raw_value = '0' if value is None else str(value).strip()
+        parts = [part.strip() for part in raw_value.split(',')]
+        if len(parts) not in (1, 2) or any(not part for part in parts):
+            raise ValueError('门票爬塔次数必须填写数字或“简单次数,困难次数”')
+        if any(not part.isdigit() for part in parts):
+            raise ValueError('门票爬塔次数只能填写非负整数')
+        return ','.join(str(int(part)) for part in parts)
 
     # @model_validator(mode='after')
     def valid_run_sequence(self):
