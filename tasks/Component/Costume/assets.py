@@ -242,3 +242,24 @@ class CostumeAssets:
 	# description 
 	I_PET_HOUSE_9 = RuleImage(roi_front=(888,327,40,35), roi_back=(730,316,440,57), threshold=0.8, method="Template matching", file="./tasks/Component/Costume/main9/main9_pet_house_9.png")
 
+	# Image Rule Assets
+	# 庭院卷轴收起
+	I_MAIN_SCROLL_CLOSE_1 = RuleImage(roi_front=(1181,634,28,39), roi_back=(1162,595,77,112), threshold=0.8, method="Template matching", file="./tasks/Component/Costume/theme1/theme1_main_scroll_close.png")
+	# 式神录
+	I_MAIN_GOTO_SHIKIGAMI_RECORDS_1 = RuleImage(roi_front=(1080,590,56,64), roi_back=(1080,590,120,100), threshold=0.7, method="Template matching", file="./tasks/Component/Costume/theme1/theme1_main_goto_shikigami_records.png")
+	# 阴阳术
+	I_MAIN_GOTO_ONMYODO_1 = RuleImage(roi_front=(960,590,39,36), roi_back=(960,590,120,100), threshold=0.7, method="Template matching", file="./tasks/Component/Costume/theme1/theme1_main_goto_onmyodo.png")
+	# 好友
+	I_MAIN_GOTO_FRIENDS_1 = RuleImage(roi_front=(845,590,55,55), roi_back=(845,590,120,100), threshold=0.7, method="Template matching", file="./tasks/Component/Costume/theme1/theme1_main_goto_friends.png")
+	# 花合战
+	I_MAIN_GOTO_DAILY_1 = RuleImage(roi_front=(790,618,49,40), roi_back=(735,590,120,100), threshold=0.7, method="Template matching", file="./tasks/Component/Costume/theme1/theme1_main_goto_daily.png")
+	# 商店
+	I_MAIN_GOTO_MALL_1 = RuleImage(roi_front=(664,661,40,18), roi_back=(601,613,163,78), threshold=0.7, method="Template matching", file="./tasks/Component/Costume/theme1/theme1_main_goto_mall.png")
+	# 阴阳寮
+	I_MAIN_GOTO_GUILD_1 = RuleImage(roi_front=(495,590,50,22), roi_back=(495,590,120,100), threshold=0.7, method="Template matching", file="./tasks/Component/Costume/theme1/theme1_main_goto_guild.png")
+	# 组队
+	I_MAIN_GOTO_TEAM_1 = RuleImage(roi_front=(395,590,38,48), roi_back=(395,590,120,100), threshold=0.7, method="Template matching", file="./tasks/Component/Costume/theme1/theme1_main_goto_team.png")
+	# 图鉴
+	I_MAIN_GOTO_COLLECTION_1 = RuleImage(roi_front=(70,590,36,41), roi_back=(70,590,120,100), threshold=0.7, method="Template matching", file="./tasks/Component/Costume/theme1/theme1_main_goto_collection.png")
+	# 珍旅居
+	I_MAIN_GOTO_TRAVEL_1 = RuleImage(roi_front=(170,590,64,61), roi_back=(170,590,120,100), threshold=0.8, method="Template matching", file="./tasks/Component/Costume/theme1/theme1_main_goto_travel.png")

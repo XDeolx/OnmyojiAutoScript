@@ -5,7 +5,14 @@
 from module.atom.image import RuleImage
 from module.logger import logger
 
-from tasks.Component.Costume.config import (MainType, CostumeConfig, ShikigamiType, BattleType, CourtyardAffairType)
+from tasks.Component.Costume.config import (
+    MainType,
+    CostumeConfig,
+    ThemeType,
+    ShikigamiType,
+    BattleType,
+    CourtyardAffairType,
+)
 from tasks.Component.Costume.assets import CostumeAssets
 from tasks.Component.CostumeBattle.assets import CostumeBattleAssets
 from tasks.Component.CostumeShikigami.assets import CostumeShikigamiAssets
@@ -27,6 +34,21 @@ main_costume_model = {
         'I_HARVEST_SOUL': f'I_HARVEST_SOUL_{i}',
         'I_HARVEST_GUILD_REWARD': f'I_HARVEST_GUILD_REWARD_{i}'
     } for i in range(1, 18)
+}
+
+theme_costume_model = {
+    ThemeType.COSTUME_THEME_1: {
+        'I_MAIN_SCROLL_CLOSE': 'I_MAIN_SCROLL_CLOSE_1',
+        'I_MAIN_GOTO_SHIKIGAMI_RECORDS': 'I_MAIN_GOTO_SHIKIGAMI_RECORDS_1',
+        'I_MAIN_GOTO_ONMYODO': 'I_MAIN_GOTO_ONMYODO_1',
+        'I_MAIN_GOTO_FRIENDS': 'I_MAIN_GOTO_FRIENDS_1',
+        'I_MAIN_GOTO_DAILY': 'I_MAIN_GOTO_DAILY_1',
+        'I_MAIN_GOTO_MALL': 'I_MAIN_GOTO_MALL_1',
+        'I_MAIN_GOTO_GUILD': 'I_MAIN_GOTO_GUILD_1',
+        'I_MAIN_GOTO_TEAM': 'I_MAIN_GOTO_TEAM_1',
+        'I_MAIN_GOTO_COLLECTION': 'I_MAIN_GOTO_COLLECTION_1',
+        'I_MAIN_GOTO_TRAVEL': 'I_MAIN_GOTO_TRAVEL_1',
+    },
 }
 
 # 战斗主题（使用循环处理常规情况 + 特例处理）
@@ -85,6 +107,7 @@ class CostumeBase:
         if config is None:
             config: CostumeConfig = self.config.model.global_game.costume_config
         self.check_costume_main(config.costume_main_type)
+        self.check_costume_theme(config.costume_theme_type)
         self.check_costume_battle(config.costume_battle_type)
         self.check_costume_shikigami(config.costume_shikigami_type)
         self.check_custom_courtyard_affair(config.custom_courtyard_affair)
@@ -113,6 +136,14 @@ class CostumeBase:
             if assert_value is None:
                 continue
             self.replace_img(key, assert_value)
+
+    def check_costume_theme(self, theme_type: ThemeType):
+        if theme_type == ThemeType.COSTUME_THEME_DEFAULT:
+            return
+        logger.info(f'Switch courtyard theme {theme_type}')
+        costume_assets = CostumeAssets()
+        for key, value in theme_costume_model[theme_type].items():
+            self.replace_img(key, getattr(costume_assets, value))
 
     def check_costume_battle(self, battle_type: BattleType):
         if battle_type == BattleType.COSTUME_BATTLE_DEFAULT:
