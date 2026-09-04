@@ -23,6 +23,7 @@ test.py
 test/
 
 # OnmyojiAutoScript
+/tests/
 *.user
 !module/gui/FluentUI/fluentuiplugin.dll
 build-fluentui-Desktop_*/
