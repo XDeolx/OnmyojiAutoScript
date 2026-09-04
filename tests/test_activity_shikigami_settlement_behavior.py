@@ -9,8 +9,11 @@ from tasks.ActivityShikigami.config import GeneralClimb
 from tasks.ActivityShikigami.settlement_behavior import (
     CATEGORY_COUNTS,
     CATEGORY_POOLS,
+    DETAIL_REGIONS,
+    MODE_SWITCH_EXCLUSION,
     SETTLEMENT_REGIONS,
     ClimbSettlementPlanner,
+    point_in_bounds,
 )
 from tasks.Component.GeneralBattle.general_battle import BattleAction
 
@@ -91,8 +94,86 @@ class ActivityShikigamiSettlementPlannerTest(unittest.TestCase):
 
         self.assertIn(len(points), (3, 4))
         self.assertTrue(all(SETTLEMENT_REGIONS[7].contains(point, scale=0.82) for point in points))
+        self.assertTrue(all(not point_in_bounds(point, MODE_SWITCH_EXCLUSION) for point in points))
         self.assertLessEqual(max(x for x, _ in points) - min(x for x, _ in points), 14)
         self.assertLessEqual(max(y for _, y in points) - min(y for _, y in points), 12)
+
+    def test_detail_four_is_directly_above_detail_three(self):
+        detail_three = DETAIL_REGIONS[3]
+        detail_four = DETAIL_REGIONS[4]
+
+        self.assertEqual(detail_four.bounds[0], detail_three.bounds[0])
+        self.assertEqual(detail_four.bounds[2], detail_three.bounds[2])
+        self.assertEqual(detail_four.bounds[3] - detail_four.bounds[1],
+                         detail_three.bounds[3] - detail_three.bounds[1])
+        self.assertLess(detail_four.bounds[3], detail_three.bounds[1])
+
+    def test_detail_five_and_six_are_above_detail_one_and_two(self):
+        for upper_id, lower_id in ((5, 1), (6, 2)):
+            upper = DETAIL_REGIONS[upper_id]
+            lower = DETAIL_REGIONS[lower_id]
+            self.assertEqual(upper.bounds[0], lower.bounds[0])
+            self.assertEqual(upper.bounds[2], lower.bounds[2])
+            self.assertEqual(upper.bounds[3] - upper.bounds[1],
+                             lower.bounds[3] - lower.bounds[1])
+            self.assertLess(upper.bounds[3], lower.bounds[1])
+
+    def test_pass_detail_uses_all_six_regions(self):
+        planner = self.create_planner()
+
+        with patch(
+            'tasks.ActivityShikigami.settlement_behavior.random.choice',
+            return_value=1,
+        ) as choice:
+            region_name, _point = planner.detail_point('pass')
+
+        self.assertEqual(region_name, 'Detail1')
+        self.assertEqual(choice.call_args.args[0], (1, 2, 3, 4, 5, 6))
+
+    def test_non_pass_detail_uses_only_the_upper_row(self):
+        planner = self.create_planner()
+
+        with patch(
+            'tasks.ActivityShikigami.settlement_behavior.random.choice',
+            return_value=4,
+        ) as choice:
+            region_name, _point = planner.detail_point('ap')
+
+        self.assertEqual(region_name, 'Detail4')
+        self.assertEqual(choice.call_args.args[0], (4, 5, 6))
+
+    def test_weighted_r7_never_uses_the_mode_switch_exclusion(self):
+        planner = self.create_planner(detail_enabled=False)
+        planner.template['E'] = (7,)
+
+        with patch(
+            'tasks.ActivityShikigami.settlement_behavior.random.choices',
+            return_value=['E'],
+        ):
+            points = [planner.weighted_point()[2] for _ in range(500)]
+
+        self.assertTrue(all(not point_in_bounds(point, MODE_SWITCH_EXCLUSION) for point in points))
+
+    @patch('tasks.ActivityShikigami.base_act.GameUi.detect_page_in')
+    def test_burst_mode_review_restores_the_expected_climb_type(self, detect_page):
+        task = BaseAct.__new__(BaseAct)
+        task.conf = SimpleNamespace(
+            general_climb=SimpleNamespace(run_sequence_v=['pass']),
+        )
+        task.run_idx = 0
+        task._climb_mode_review_pending = True
+        task.screenshot = MagicMock()
+        task.goto_page = MagicMock()
+        detect_page.side_effect = [
+            __import__('tasks.ActivityShikigami.page', fromlist=['page_act_ap']).page_act_ap,
+            __import__('tasks.ActivityShikigami.page', fromlist=['page_act_pass']).page_act_pass,
+        ]
+
+        BaseAct._restore_climb_mode_after_burst(task)
+
+        page_module = __import__('tasks.ActivityShikigami.page', fromlist=['page_act_pass'])
+        task.goto_page.assert_called_once_with(page_module.page_act_pass)
+        self.assertFalse(task._climb_mode_review_pending)
 
     def test_fatigue_guard_runs_before_the_custom_reward_handler(self):
         task = BaseAct.__new__(BaseAct)

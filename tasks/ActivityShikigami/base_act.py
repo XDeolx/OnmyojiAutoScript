@@ -143,6 +143,7 @@ class BaseAct(StateMachine, GameUi, GeneralBattle, SwitchSoul, ActivityShikigami
 
     def before_run(self):
         self._fatigue_battle_count = 0
+        self._climb_mode_review_pending = False
         self._initialize_settlement_behavior()
         self.switch_souled = {}
         self.current_pass_mode = None
@@ -206,11 +207,8 @@ class BaseAct(StateMachine, GameUi, GeneralBattle, SwitchSoul, ActivityShikigami
             )
         return decision
 
-    def _climb_reward_visible(self) -> bool:
-        self.screenshot()
-        return GameUi.detect_page_in(self, pages.page_reward, include_global=False) == pages.page_reward
-
-    def _execute_climb_burst(self, *, reason: str, battle_number: int) -> None:
+    def _execute_climb_burst(self, *, reason: str, battle_number: int) -> bool:
+        self._climb_mode_review_pending = True
         points = self._get_settlement_planner().burst_points()
         logger.info(
             'Climb settlement burst: '
@@ -226,22 +224,81 @@ class BaseAct(StateMachine, GameUi, GeneralBattle, SwitchSoul, ActivityShikigami
                     f'click={index + 1}/{len(points)}, delay={interval:.3f}s'
                 )
                 time.sleep(interval)
-                if not self._climb_reward_visible():
-                    logger.info(
-                        'Climb settlement burst stopped: '
-                        f'battle={battle_number}, completed={completed}/{len(points)}, page_changed=true'
-                    )
-                    break
             self.device.click(
                 x,
                 y,
                 control_name=f'CLIMB_SETTLEMENT_BURST_E_{reason.upper()}',
             )
             completed += 1
+        return False
+
+    def _restore_climb_mode_after_burst(self) -> None:
+        """Restore the configured climb type if settlement taps changed the mode."""
+        if not getattr(self, '_climb_mode_review_pending', False):
+            return
+
+        self._climb_mode_review_pending = False
+        expected_type = self.climb_type
+        mode_pages = {
+            'pass': pages.page_act_pass,
+            'ap': pages.page_act_ap,
+            'ap100': pages.page_act_ap100,
+            'boss': pages.page_act_boss,
+        }
+        expected_page = mode_pages.get(expected_type)
+        if expected_page is None:
+            logger.warning(
+                'Climb settlement mode review skipped: '
+                f'expected={expected_type}, reason=unsupported_type'
+            )
+            return
+
+        current_page = None
+        for _attempt in range(5):
+            self.screenshot()
+            current_page = GameUi.detect_page_in(
+                self,
+                *mode_pages.values(),
+                include_global=False,
+            )
+            if current_page is not None:
+                break
+            time.sleep(0.25)
+
+        expected_key = getattr(expected_page, 'key', None)
+        current_key = getattr(current_page, 'key', None)
+        actual_type = next(
+            (
+                climb_type
+                for climb_type, page in mode_pages.items()
+                if getattr(page, 'key', None) == current_key
+            ),
+            'unknown',
+        )
+        if current_page is not None and current_key == expected_key:
+            logger.info(
+                'Climb settlement mode review: '
+                f'expected={expected_type}, actual={actual_type}, result=confirmed'
+            )
+            return
+
+        logger.warning(
+            'Climb settlement mode review: '
+            f'expected={expected_type}, actual={actual_type}, result=restore'
+        )
+        self.goto_page(expected_page)
+        self.screenshot()
+        restored_page = GameUi.detect_page_in(self, expected_page, include_global=False)
+        restored = getattr(restored_page, 'key', None) == expected_key
+        log = logger.info if restored else logger.warning
+        log(
+            'Climb settlement mode restore: '
+            f'expected={expected_type}, result={"success" if restored else "failed"}'
+        )
 
     def _execute_climb_detail(self, decision: SettlementDecision) -> None:
         planner = self._get_settlement_planner()
-        region_name, (x, y) = planner.detail_point()
+        region_name, (x, y) = planner.detail_point(self.climb_type)
         delay = planner.detail_delay()
         logger.info(
             'Climb settlement detail: '
@@ -620,6 +677,7 @@ class BaseAct(StateMachine, GameUi, GeneralBattle, SwitchSoul, ActivityShikigami
                 self.count_map[self.climb_type] += 1
             self.run_general_battle(getattr(self.conf, f'{self.climb_type}_battle_conf'),
                                     battle_key=f'act_{self.climb_type}')
+            self._restore_climb_mode_after_burst()
             self._record_fatigue_battle()
 
     def enter_battle(self):

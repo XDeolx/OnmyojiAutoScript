@@ -21,16 +21,30 @@ class EllipseRegion:
         x, y = point
         return ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1
 
-    def sample(self, scale: float = 0.82) -> tuple[int, int]:
+    def sample(
+        self,
+        scale: float = 0.82,
+        exclusions: tuple[tuple[int, int, int, int], ...] = (),
+    ) -> tuple[int, int]:
         """Sample uniformly by area inside an inset copy of the ellipse."""
         x1, y1, x2, y2 = self.bounds
         cx = (x1 + x2) / 2
         cy = (y1 + y2) / 2
-        radius = math.sqrt(random.random()) * scale
-        angle = random.uniform(0, math.tau)
-        x = round(cx + math.cos(angle) * radius * (x2 - x1) / 2)
-        y = round(cy + math.sin(angle) * radius * (y2 - y1) / 2)
-        return max(0, min(1279, x)), max(0, min(719, y))
+        for _attempt in range(64):
+            radius = math.sqrt(random.random()) * scale
+            angle = random.uniform(0, math.tau)
+            x = round(cx + math.cos(angle) * radius * (x2 - x1) / 2)
+            y = round(cy + math.sin(angle) * radius * (y2 - y1) / 2)
+            point = max(0, min(1279, x)), max(0, min(719, y))
+            if not any(point_in_bounds(point, bounds) for bounds in exclusions):
+                return point
+        return round(cx), round(cy)
+
+
+def point_in_bounds(point: tuple[int, int], bounds: tuple[int, int, int, int]) -> bool:
+    x, y = point
+    x1, y1, x2, y2 = bounds
+    return x1 <= x <= x2 and y1 <= y <= y2
 
 
 SETTLEMENT_REGIONS = {
@@ -47,10 +61,17 @@ SETTLEMENT_REGIONS = {
     11: EllipseRegion('R11', (18, 485, 276, 695)),
 }
 
+# The pass/AP switch is exposed immediately after leaving the reward page.
+# Keep every R7 click away from it even if a burst overlaps the transition.
+MODE_SWITCH_EXCLUSION = (1208, 518, 1279, 592)
+
 DETAIL_REGIONS = {
     1: EllipseRegion('Detail1', (600, 371, 662, 433)),
     2: EllipseRegion('Detail2', (696, 371, 758, 433)),
     3: EllipseRegion('Detail3', (791, 371, 853, 433)),
+    4: EllipseRegion('Detail4', (791, 271, 853, 333)),
+    5: EllipseRegion('Detail5', (600, 271, 662, 333)),
+    6: EllipseRegion('Detail6', (696, 271, 758, 333)),
 }
 
 CATEGORY_POOLS = {
@@ -134,10 +155,12 @@ class ClimbSettlementPlanner:
         )[0]
         region_id = random.choice(self.template[category])
         region = SETTLEMENT_REGIONS[region_id]
-        return category, region.name, region.sample()
+        exclusions = (MODE_SWITCH_EXCLUSION,) if region_id == 7 else ()
+        return category, region.name, region.sample(exclusions=exclusions)
 
-    def detail_point(self) -> tuple[str, tuple[int, int]]:
-        region = random.choice(tuple(DETAIL_REGIONS.values()))
+    def detail_point(self, climb_type: str) -> tuple[str, tuple[int, int]]:
+        region_ids = (1, 2, 3, 4, 5, 6) if climb_type == 'pass' else (4, 5, 6)
+        region = DETAIL_REGIONS[random.choice(region_ids)]
         return region.name, region.sample(scale=0.72)
 
     def detail_delay(self) -> float:
@@ -146,7 +169,7 @@ class ClimbSettlementPlanner:
     def burst_points(self) -> list[tuple[int, int]]:
         region = SETTLEMENT_REGIONS[7]
         count = random.randint(3, 4)
-        anchor = region.sample(scale=0.62)
+        anchor = region.sample(scale=0.62, exclusions=(MODE_SWITCH_EXCLUSION,))
         points = []
         for _ in range(count):
             for _attempt in range(12):
@@ -154,7 +177,10 @@ class ClimbSettlementPlanner:
                     anchor[0] + random.randint(-7, 7),
                     anchor[1] + random.randint(-6, 6),
                 )
-                if region.contains(point, scale=0.82):
+                if (
+                    region.contains(point, scale=0.82)
+                    and not point_in_bounds(point, MODE_SWITCH_EXCLUSION)
+                ):
                     points.append(point)
                     break
             else:
