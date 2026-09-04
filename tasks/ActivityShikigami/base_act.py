@@ -14,6 +14,7 @@ from module.logger import logger
 from tasks.base_task import BaseTask
 from tasks.ActivityShikigami.assets import ActivityShikigamiAssets
 from tasks.ActivityShikigami.config import GeneralBattleConfig, ActivityShikigami
+from tasks.ActivityShikigami.settlement_behavior import ClimbSettlementPlanner, SettlementDecision
 from tasks.Component.SwitchSoul.switch_soul import SwitchSoul
 from tasks.GameUi.game_ui import GameUi
 import tasks.ActivityShikigami.page as pages
@@ -124,6 +125,8 @@ class BaseAct(StateMachine, GameUi, GeneralBattle, SwitchSoul, ActivityShikigami
     def _handle_reward(self, context: BattleContext, config: GeneralBattleConfig) -> BattleAction:
         if not self._fatigue_settlement_click_ready(context):
             return BattleAction.CONTINUE
+        if self._settlement_region_enabled():
+            return self._handle_climb_reward(context)
         return super()._handle_reward(context, config)
 
     def _reset_round_context(self, context: BattleContext, config: GeneralBattleConfig, *, continuous_count: int) -> None:
@@ -132,12 +135,15 @@ class BaseAct(StateMachine, GameUi, GeneralBattle, SwitchSoul, ActivityShikigami
             'fatigue_settlement_delay_timer',
             'fatigue_settlement_delay',
             'fatigue_settlement_delay_logged',
+            'climb_settlement_decision',
+            'climb_settlement_special_done',
         ):
             if hasattr(context, attribute):
                 delattr(context, attribute)
 
     def before_run(self):
         self._fatigue_battle_count = 0
+        self._initialize_settlement_behavior()
         self.switch_souled = {}
         self.current_pass_mode = None
         self.pass_action_count = {'easy': 0, 'hard': 0}
@@ -146,6 +152,146 @@ class BaseAct(StateMachine, GameUi, GeneralBattle, SwitchSoul, ActivityShikigami
         self.climb_pending_consumption = {}
         pages.page_battle_result = self.navigator.resolve_page(pages.page_battle_result)
         pages.page_battle_result.recognizer = pages.any_of(self.I_UI_BACK_RED, pages.page_battle_result.recognizer)
+
+    def _settlement_region_enabled(self) -> bool:
+        return bool(getattr(self.conf.general_climb, 'settlement_region_enable', False))
+
+    def _initialize_settlement_behavior(self) -> None:
+        self._settlement_planner = None
+        if not self._settlement_region_enabled():
+            return
+
+        config = self.conf.general_climb
+        self._settlement_planner = ClimbSettlementPlanner(
+            detail_enabled=config.settlement_detail_enable,
+            detail_interval_min=config.settlement_detail_interval_min,
+            detail_interval_max=config.settlement_detail_interval_max,
+            detail_delay_min=config.settlement_detail_delay_min,
+            detail_delay_max=config.settlement_detail_delay_max,
+            burst_percent=config.settlement_burst_percent,
+        )
+        planner = self._settlement_planner
+        logger.info(f'Climb settlement template: {planner.template_summary}')
+        if planner.detail_enabled:
+            logger.info(
+                'Climb settlement detail cycle: '
+                f'initial_progress={planner.detail_progress}/{planner.detail_target}, '
+                f'next_in={planner.detail_target - planner.detail_progress}'
+            )
+
+    def _get_settlement_planner(self) -> ClimbSettlementPlanner:
+        planner = getattr(self, '_settlement_planner', None)
+        if planner is None:
+            self._initialize_settlement_behavior()
+            planner = self._settlement_planner
+        return planner
+
+    def _begin_climb_settlement(self, context: BattleContext) -> SettlementDecision:
+        decision = getattr(context, 'climb_settlement_decision', None)
+        if decision is not None:
+            return decision
+
+        planner = self._get_settlement_planner()
+        decision = planner.begin_settlement()
+        context.climb_settlement_decision = decision
+        logger.info(
+            'Climb settlement behavior: '
+            f'battle={decision.battle_number}, kind={decision.kind}, '
+            f'detail={decision.detail_progress}/{decision.detail_target}'
+        )
+        if decision.kind == 'detail':
+            logger.info(
+                'Climb settlement detail cycle reset: '
+                f'next_target={planner.detail_target}'
+            )
+        return decision
+
+    def _climb_reward_visible(self) -> bool:
+        self.screenshot()
+        return GameUi.detect_page_in(self, pages.page_reward, include_global=False) == pages.page_reward
+
+    def _execute_climb_burst(self, *, reason: str, battle_number: int) -> None:
+        points = self._get_settlement_planner().burst_points()
+        logger.info(
+            'Climb settlement burst: '
+            f'battle={battle_number}, reason={reason}, clicks={len(points)}, anchor_region=R7'
+        )
+        completed = 0
+        for index, (x, y) in enumerate(points):
+            if index:
+                interval = round(random.uniform(0.08, 0.18), 3)
+                logger.info(
+                    '爬塔快速结算随机等待: '
+                    f'battle={battle_number}, reason={reason}, '
+                    f'click={index + 1}/{len(points)}, delay={interval:.3f}s'
+                )
+                time.sleep(interval)
+                if not self._climb_reward_visible():
+                    logger.info(
+                        'Climb settlement burst stopped: '
+                        f'battle={battle_number}, completed={completed}/{len(points)}, page_changed=true'
+                    )
+                    break
+            self.device.click(
+                x,
+                y,
+                control_name=f'CLIMB_SETTLEMENT_BURST_E_{reason.upper()}',
+            )
+            completed += 1
+
+    def _execute_climb_detail(self, decision: SettlementDecision) -> None:
+        planner = self._get_settlement_planner()
+        region_name, (x, y) = planner.detail_point()
+        delay = planner.detail_delay()
+        logger.info(
+            'Climb settlement detail: '
+            f'battle={decision.battle_number}, region={region_name}, point=({x},{y})'
+        )
+        self.device.click(x, y, control_name=f'CLIMB_SETTLEMENT_{region_name.upper()}')
+        logger.info(
+            '爬塔查看详情随机等待: '
+            f'battle={decision.battle_number}, delay={delay:.2f}s'
+        )
+        time.sleep(delay)
+        self._execute_climb_burst(reason='detail', battle_number=decision.battle_number)
+
+    def _weighted_climb_settlement_click(self, context: BattleContext, battle_number: int) -> bool:
+        timer = context.settlement_click_timer
+        if timer.started() and not timer.reached():
+            return False
+
+        category, region_name, (x, y) = self._get_settlement_planner().weighted_point()
+        logger.info(
+            'Climb settlement weighted click: '
+            f'battle={battle_number}, category={category}, region={region_name}, point=({x},{y})'
+        )
+        self.device.click(x, y, control_name=f'CLIMB_SETTLEMENT_{category}_{region_name}')
+        timer.limit = self._next_settlement_click_interval()
+        timer.reset()
+        return True
+
+    def _handle_climb_reward(self, context: BattleContext) -> BattleAction:
+        """Handle climb rewards with the task-level settlement behavior template."""
+        context.reward_no_battle_ts = None
+        context.is_win = True
+        self.appear_then_click(self.I_OVER_GHOST, interval=0.8)
+        self.appear_then_click(self.I_GB_SKIN_CONFIRM, interval=0.8)
+        if context.last_page != pages.page_reward:
+            self.device.click_record_clear()
+
+        decision = self._begin_climb_settlement(context)
+        special_done = getattr(context, 'climb_settlement_special_done', False)
+        if decision.kind == 'detail' and not special_done:
+            self._execute_climb_detail(decision)
+            context.climb_settlement_special_done = True
+            return BattleAction.CONTINUE
+        if decision.kind == 'burst' and not special_done:
+            self._execute_climb_burst(reason='random', battle_number=decision.battle_number)
+            context.climb_settlement_special_done = True
+            return BattleAction.CONTINUE
+
+        self._weighted_climb_settlement_click(context, decision.battle_number)
+        return BattleAction.CONTINUE
 
     def _fatigue_rest_enabled(self) -> bool:
         return self.conf.general_climb.fatigue_rest_enable

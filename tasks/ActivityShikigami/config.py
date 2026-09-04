@@ -48,6 +48,18 @@ class GeneralClimb(ConfigBase):
                                                       description='fatigue_rest_settlement_delay_min_help')
     fatigue_rest_settlement_delay_max: float = Field(default=3.0, ge=0.1, le=30.0,
                                                       description='fatigue_rest_settlement_delay_max_help')
+    settlement_region_enable: bool = Field(default=False, description='settlement_region_enable_help')
+    settlement_detail_enable: bool = Field(default=True, description='settlement_detail_enable_help')
+    settlement_detail_interval_min: int = Field(default=20, ge=1, le=500,
+                                                 description='settlement_detail_interval_min_help')
+    settlement_detail_interval_max: int = Field(default=40, ge=1, le=500,
+                                                 description='settlement_detail_interval_max_help')
+    settlement_detail_delay_min: float = Field(default=1.0, ge=0.0, le=10.0,
+                                                description='settlement_detail_delay_min_help')
+    settlement_detail_delay_max: float = Field(default=1.5, ge=0.0, le=10.0,
+                                                description='settlement_detail_delay_max_help')
+    settlement_burst_percent: int = Field(default=5, ge=0, le=100,
+                                          description='settlement_burst_percent_help')
 
     @validator('fatigue_rest_delay_max')
     def validate_fatigue_delay_range(cls, value, values):
@@ -65,6 +77,18 @@ class GeneralClimb(ConfigBase):
     def validate_fatigue_settlement_delay_range(cls, value, values):
         if value < values.get('fatigue_rest_settlement_delay_min', value):
             raise ValueError('疲劳结算点击延迟下限不能大于上限')
+        return value
+
+    @validator('settlement_detail_interval_max')
+    def validate_settlement_detail_interval(cls, value, values):
+        if value < values.get('settlement_detail_interval_min', value):
+            raise ValueError('模拟查看详情的最小战斗间隔不能大于最大间隔')
+        return value
+
+    @validator('settlement_detail_delay_max')
+    def validate_settlement_detail_delay(cls, value, values):
+        if value < values.get('settlement_detail_delay_min', value):
+            raise ValueError('模拟查看详情的最小等待不能大于最大等待')
         return value
 
     @property
