@@ -687,6 +687,8 @@ class BaseAct(StateMachine, GameUi, GeneralBattle, SwitchSoul, ActivityShikigami
             if self.is_in_battle(False):
                 return True
             if click_times >= max_times:
+                if self._confirm_battle_after_final_fire():
+                    return True
                 logger.warning(f'{self.climb_type} cannot enter battle, click reach max times')
                 raise TicketsNotEnough
             if self.appear(self.I_UI_BACK_RED, interval=1):
@@ -701,6 +703,29 @@ class BaseAct(StateMachine, GameUi, GeneralBattle, SwitchSoul, ActivityShikigami
                 click_times += 1
                 logger.info(f'Try click fire, remain times[{max_times - click_times}]')
                 continue
+
+    def _confirm_battle_after_final_fire(self) -> bool:
+        """在最后一次点击后每半秒确认进场，兼容连接重置导致的延迟跳转。"""
+        confirm_seconds = random.randint(3, 5)
+        logger.info(f'Final battle entry confirmation: up to {confirm_seconds}s')
+        for step in range(1, confirm_seconds * 2 + 1):
+            time.sleep(0.5)
+            self.screenshot()
+            if self.is_in_battle(False):
+                elapsed = step * 0.5
+                logger.info(f'Battle entry confirmed after {elapsed:.1f}s')
+                return True
+
+        grace_seconds = random.randint(2, 3)
+        logger.info(f'Battle entry exception grace: up to {grace_seconds}s')
+        for step in range(1, grace_seconds * 2 + 1):
+            time.sleep(0.5)
+            self.screenshot()
+            if self.is_in_battle(False):
+                total_elapsed = confirm_seconds + step * 0.5
+                logger.info(f'Battle entry confirmed during exception grace after {total_elapsed:.1f}s')
+                return True
+        return False
 
     def switch_soul(self, enter_button: RuleImage, soul_type: str = None):
         soul_type = soul_type or self.climb_type
