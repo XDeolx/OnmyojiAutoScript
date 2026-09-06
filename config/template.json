@@ -256,7 +256,9 @@
       "next_ryoutoppa_time": "07:00:00",
       "skip_difficult": true,
       "ryou_access": false,
-      "random_delay": false
+      "random_delay": false,
+      "random_delay_min": 2.0,
+      "random_delay_max": 10.0
     },
     "general_battle_config": {
       "lock_team_enable": false,

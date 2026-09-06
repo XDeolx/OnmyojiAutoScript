@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 from enum import Enum
 from tasks.Component.GeneralBattle.config_general_battle import GeneralBattleConfig
 from tasks.Component.SwitchSoul.switch_soul_config import SwitchSoulConfig
@@ -18,8 +18,18 @@ class RaidConfig(BaseModel):
     skip_difficult: bool = Field(default=True, description='skip_difficult_help')
     # 寮管理开启寮突破
     ryou_access: bool = Field(default=False, description='ryou_access_help')
-    # 选择下一个目标前随机等待 2s - 10s；选中目标后点击进攻另有默认 2s - 5s 随机等待。
+    # 选择下一个目标前按自定义区间随机等待；选中目标后点击进攻另有默认 2s - 5s 随机等待。
     random_delay: bool = Field(default=False, description='random_delay_help')
+    random_delay_min: float = Field(default=2.0, ge=0.0, le=60.0,
+                                    description='random_delay_min_help')
+    random_delay_max: float = Field(default=10.0, ge=0.0, le=60.0,
+                                    description='random_delay_max_help')
+
+    @validator('random_delay_max')
+    def validate_random_delay_range(cls, value, values):
+        if value < values.get('random_delay_min', value):
+            raise ValueError('random_delay_max must not be less than random_delay_min')
+        return value
 
     # 打完没票了 0/6 => 失败
     # 突破压根没开  +> 失败

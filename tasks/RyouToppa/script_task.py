@@ -291,6 +291,26 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RyouToppaAssets):
             )
             time.sleep(2)
 
+    def dismiss_attack_popup(self) -> bool:
+        """关闭已失效目标的挑战浮窗，避免下一轮误用旧目标。"""
+        for attempt in range(2):
+            if not self.appear(RealmRaidAssets.I_FIRE, threshold=0.8):
+                return True
+            logger.info(f'关闭已失效的挑战浮窗: attempt={attempt + 1}/2')
+            self.click(self.C_SAFE_AREA, interval=0)
+            time.sleep(0.5)
+            self.screenshot()
+
+        closed = not self.appear(RealmRaidAssets.I_FIRE, threshold=0.8)
+        if not closed:
+            logger.warning('挑战浮窗未能关闭，放弃本轮换人尝试')
+        return closed
+
+    def abandon_attack_target(self, reason: str) -> bool:
+        logger.warning(reason)
+        self.dismiss_attack_popup()
+        return False
+
     def attack_area(self, index: int):
         """
         :return: 战斗成功(True) or 战斗失败(False) or 区域不可用（False） or 没有进攻机会（设定下次运行并退出）
@@ -298,9 +318,18 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RyouToppaAssets):
         # 每次进攻前检查区域可用性
         if not self.check_area(index):
             return False
-        # 选择下一个目标前可按配置随机等待 2s - 10s。
-        if self.config.ryou_toppa.raid_config.random_delay:
-            delay = random_delay()
+        # 上一个目标被抢后可能仍留有挑战浮窗，必须先关闭再选新目标。
+        if self.appear(RealmRaidAssets.I_FIRE, threshold=0.8):
+            logger.warning('检测到上一个目标的挑战浮窗残留，先关闭再换人')
+            if not self.dismiss_attack_popup():
+                return False
+        # 选择下一个目标前可按配置区间随机等待。
+        raid_config = self.config.ryou_toppa.raid_config
+        if raid_config.random_delay:
+            delay = random_delay(
+                getattr(raid_config, 'random_delay_min', 2.0),
+                getattr(raid_config, 'random_delay_max', 10.0),
+            )
             logger.info(f'寮突破选择目标前随机等待: delay={delay:.1f}s')
             time.sleep(delay)
         rcl = area_map[index].get("rule_click")
@@ -324,8 +353,9 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RyouToppaAssets):
                     continue
                 battle_wait_timer = None
                 if fire_click_count >= TOPPA_FIRE_CLICK_LIMIT:
-                    logger.warning('挑战按钮点击次数过多，可能已被击破')
-                    return False
+                    return self.abandon_attack_target(
+                        '挑战按钮点击次数过多，可能已被击破'
+                    )
                 if not self.appear(RealmRaidAssets.I_FIRE, threshold=0.8):
                     logger.warning('挑战按钮已消失但未识别到战斗，停止重复点击')
                     return False
@@ -344,8 +374,9 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RyouToppaAssets):
                     fire_delay_timer = None
                     fire_delay_ready = True
                 if fire_click_count >= TOPPA_FIRE_CLICK_LIMIT:
-                    logger.warning('挑战按钮点击次数过多，可能已被击破')
-                    return False
+                    return self.abandon_attack_target(
+                        '挑战按钮点击次数过多，可能已被击破'
+                    )
                 if self.appear_then_click(RealmRaidAssets.I_FIRE, interval=2, threshold=0.8):
                     fire_click_count += 1
                     fire_delay_ready = False
