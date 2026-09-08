@@ -98,9 +98,11 @@ class ItachiCoinShop(Buy, GameUi, RichManAssets):
         return None
 
     def _read_purchase_status(self) -> str | None:
-        image = self.device.image
-        if self.O_ITACHI_COIN_INSUFFICIENT.ocr(image) != (0, 0, 0, 0):
-            logger.warning('鼬乐币不足，停止礼盒购买')
+        # Full 模式的关键词匹配会回退到单字命中，这里必须核对完整提示。
+        results = self.O_ITACHI_COIN_INSUFFICIENT.detect_and_ocr(self.device.image)
+        text = ''.join(''.join(result.ocr_text.split()) for result in (results or []))
+        if '鼬乐币不足' in text:
+            logger.warning(f'鼬乐币不足，停止礼盒购买: text={text}')
             return self.GIFT_STOP
         return None
 
@@ -114,8 +116,20 @@ class ItachiCoinShop(Buy, GameUi, RichManAssets):
         dialog_absent_since = None
         while time.monotonic() < deadline:
             self.screenshot()
+            # 与上游一致，以奖励领取完成作为成功依据；扣币 OCR 仅用于诊断。
+            if self.appear(self.I_UI_REWARD, threshold=0.6):
+                if self._dismiss_purchase_reward():
+                    self._verify_coin_cost(before_coin, cost)
+                    return self.GIFT_PURCHASED
+                return self.GIFT_STOP
+
             status = self._read_purchase_status()
             if status is not None:
+                if self.appear(self.I_UI_CONFIRM_SAMLL):
+                    self.ui_click_until_disappear(
+                        self.I_UI_CONFIRM_SAMLL,
+                        interval=1,
+                    )
                 return status
 
             if self.appear(self.I_UI_CONFIRM_SAMLL):
@@ -124,13 +138,6 @@ class ItachiCoinShop(Buy, GameUi, RichManAssets):
                     interval=1,
                 )
                 logger.warning('鼬乐礼盒出现其他购买提示，已确认并停止购买')
-                return self.GIFT_STOP
-
-            if self.appear(self.I_UI_REWARD, threshold=0.6):
-                reward_closed = self._dismiss_purchase_reward()
-                if reward_closed:
-                    if self._verify_coin_cost(before_coin, cost):
-                        return self.GIFT_PURCHASED
                 return self.GIFT_STOP
 
             if self.appear(self.I_BUY_PLUS):
