@@ -786,8 +786,17 @@ class BaseAct(StateMachine, GameUi, GeneralBattle, SwitchSoul, ActivityShikigami
             cur, remain_times, total = self.O_REMAIN_BOSS.ocr_digit_counter(self.device.image)
         if self.climb_type == 'ap100':
             remain_times = self.O_REMAIN_AP100.ocr_digit(self.device.image)
-        remain_times = self._update_climb_consumable_count(self.climb_type, remain_times)
         required = self._climb_resource_consumption()
+        if self.climb_type == 'ap' and remain_times < required:
+            first_remain = remain_times
+            self.screenshot()
+            remain_times = self.O_REMAIN_AP.ocr_digit(self.device.image)
+            ap_pass_remain = self.O_REMAIN_AP_PASS.ocr_digit(self.device.image)
+            logger.info(
+                f'Climb ap low resource retry: '
+                f'first={first_remain}, retry={remain_times}, required={required}'
+            )
+        remain_times = self._update_climb_consumable_count(self.climb_type, remain_times)
         if self.climb_type == 'ap' and ap_pass_remain is not None:
             ap_pass_remain = self._update_climb_consumable_count('ap_pass', ap_pass_remain)
             ap_pass_required = self._climb_ap_pass_consumption()
