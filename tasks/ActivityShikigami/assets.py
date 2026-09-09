@@ -129,9 +129,9 @@ class ActivityShikigamiAssets:
 	# 活动签到附属页面关闭按钮
 	I_ACTIVITY_SIGNIN_CLOSE = RuleImage(roi_front=(1137,179,40,32), roi_back=(1113,150,94,85), threshold=0.8, method="Template matching", file="./tasks/ActivityShikigami/as/page/as_activity_signin_close.png")
 	# 进入爬塔选择页
-	I_TO_BATTLE_MAIN = RuleImage(roi_front=(318,179,90,104), roi_back=(287,125,149,201), threshold=0.8, method="Template matching", file="./tasks/ActivityShikigami/as/climb/as_to_battle_main.png")
+	I_TO_BATTLE_MAIN = RuleImage(roi_front=(315,204,91,77), roi_back=(287,125,149,201), threshold=0.8, method="Template matching", file="./tasks/ActivityShikigami/as/climb/as_to_battle_main.png")
 	# 进入首领战斗页面
-	I_TO_BATTLE_BOSS = RuleImage(roi_front=(125,419,89,91), roi_back=(97,402,145,138), threshold=0.8, method="Template matching", file="./tasks/ActivityShikigami/as/climb/as_to_battle_boss.png")
+	I_TO_BATTLE_BOSS = RuleImage(roi_front=(125,449,88,58), roi_back=(97,402,145,138), threshold=0.8, method="Template matching", file="./tasks/ActivityShikigami/as/climb/as_to_battle_boss.png")
 	# boss界面标志 
 	I_CHECK_BATTLE_BOSS = RuleImage(roi_front=(151,18,129,46), roi_back=(141,0,151,85), threshold=0.8, method="Template matching", file="./tasks/ActivityShikigami/as/as_check_battle_boss.png")
 	# 从爬塔战斗页进入式神录
