@@ -47,6 +47,31 @@ def point_in_bounds(point: tuple[int, int], bounds: tuple[int, int, int, int]) -
     return x1 <= x <= x2 and y1 <= y <= y2
 
 
+@dataclass(frozen=True)
+class DiamondRegion(EllipseRegion):
+    """A diamond-shaped button; its bounding-box corners are not clickable."""
+
+    def contains(self, point: tuple[int, int], scale: float = 1.0) -> bool:
+        x1, y1, x2, y2 = self.bounds
+        cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
+        rx, ry = (x2 - x1) * scale / 2, (y2 - y1) * scale / 2
+        return abs(point[0] - cx) / rx + abs(point[1] - cy) / ry <= 1
+
+    def sample(self, scale: float = 1.0) -> tuple[int, int]:
+        x1, y1, x2, y2 = self.bounds
+        cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
+        # A rotated uniform square gives uniform sampling by diamond area.
+        for _attempt in range(64):
+            u, v = random.uniform(-1, 1), random.uniform(-1, 1)
+            point = (
+                round(cx + (u + v) * (x2 - x1) * scale / 4),
+                round(cy + (u - v) * (y2 - y1) * scale / 4),
+            )
+            if self.contains(point, scale):
+                return point
+        return round(cx), round(cy)
+
+
 SETTLEMENT_REGIONS = {
     1: EllipseRegion('R1', (70, 281, 322, 494)),
     2: EllipseRegion('R2', (309, 19, 528, 143)),
@@ -64,6 +89,10 @@ SETTLEMENT_REGIONS = {
 # The pass/AP switch is exposed immediately after leaving the reward page.
 # Keep every R7 click away from it even if a burst overlaps the transition.
 MODE_SWITCH_EXCLUSION = (1208, 518, 1279, 592)
+
+# Verified against a 1280x720 ADB screenshot of the current climb screen.
+# Use the button interior, with diamond corners excluded from the bounding box.
+BURST_CHALLENGE_REGION = DiamondRegion('Challenge', (1105, 556, 1247, 698))
 
 DETAIL_REGIONS = {
     1: EllipseRegion('Detail1', (600, 371, 662, 433)),
@@ -167,9 +196,9 @@ class ClimbSettlementPlanner:
         return round(random.uniform(self.detail_delay_min, self.detail_delay_max), 2)
 
     def burst_points(self) -> list[tuple[int, int]]:
-        region = SETTLEMENT_REGIONS[7]
+        region = BURST_CHALLENGE_REGION
         count = random.randint(3, 4)
-        anchor = region.sample(scale=0.62, exclusions=(MODE_SWITCH_EXCLUSION,))
+        anchor = region.sample()
         points = []
         for _ in range(count):
             for _attempt in range(12):
@@ -177,14 +206,11 @@ class ClimbSettlementPlanner:
                     anchor[0] + random.randint(-7, 7),
                     anchor[1] + random.randint(-6, 6),
                 )
-                if (
-                    region.contains(point, scale=0.82)
-                    and not point_in_bounds(point, MODE_SWITCH_EXCLUSION)
-                ):
-                    points.append(point)
+                if region.contains(point):
                     break
             else:
-                points.append(anchor)
+                point = anchor
+            points.append(point)
         return points
 
     @property

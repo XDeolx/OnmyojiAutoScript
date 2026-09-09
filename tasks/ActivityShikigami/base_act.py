@@ -115,6 +115,16 @@ class BaseAct(StateMachine, GameUi, GeneralBattle, SwitchSoul, ActivityShikigami
     def _exit_matcher(self) -> ExitMatcher | None:
         return self.I_ACT_FIRE
 
+    def _handle_prepare(self, context: BattleContext, config: GeneralBattleConfig) -> BattleAction:
+        if self._capture_climb_burst_next_battle():
+            return BattleAction.EXIT_WIN
+        return super()._handle_prepare(context, config)
+
+    def _handle_in_battle(self, context: BattleContext, config: GeneralBattleConfig) -> BattleAction:
+        if self._capture_climb_burst_next_battle():
+            return BattleAction.EXIT_WIN
+        return super()._handle_in_battle(context, config)
+
     def _handle_result(self, context: BattleContext, config: GeneralBattleConfig) -> BattleAction:
         if not self._fatigue_settlement_click_ready(context):
             return BattleAction.CONTINUE
@@ -144,6 +154,8 @@ class BaseAct(StateMachine, GameUi, GeneralBattle, SwitchSoul, ActivityShikigami
     def before_run(self):
         self._fatigue_battle_count = 0
         self._climb_mode_review_pending = False
+        self._climb_burst_pending = False
+        self._climb_burst_next_battle = False
         self._initialize_settlement_behavior()
         self.switch_souled = {}
         self.current_pass_mode = None
@@ -209,12 +221,12 @@ class BaseAct(StateMachine, GameUi, GeneralBattle, SwitchSoul, ActivityShikigami
 
     def _execute_climb_burst(self, *, reason: str, battle_number: int) -> bool:
         self._climb_mode_review_pending = True
+        self._climb_burst_pending = True
         points = self._get_settlement_planner().burst_points()
         logger.info(
             'Climb settlement burst: '
-            f'battle={battle_number}, reason={reason}, clicks={len(points)}, anchor_region=R7'
+            f'battle={battle_number}, reason={reason}, clicks={len(points)}, anchor_region=Challenge'
         )
-        completed = 0
         for index, (x, y) in enumerate(points):
             if index:
                 interval = round(random.uniform(0.08, 0.18), 3)
@@ -229,8 +241,37 @@ class BaseAct(StateMachine, GameUi, GeneralBattle, SwitchSoul, ActivityShikigami
                 y,
                 control_name=f'CLIMB_SETTLEMENT_BURST_E_{reason.upper()}',
             )
-            completed += 1
-        return False
+        self.screenshot()
+        return self._capture_climb_burst_next_battle()
+
+    def _capture_climb_burst_next_battle(self) -> bool:
+        """Recognize a new round using preparation/combat only, never old rewards."""
+        if not getattr(self, '_climb_burst_pending', False):
+            return False
+        if not (self.is_in_real_battle(False) or self.is_in_prepare(False)):
+            return False
+        if not getattr(self, '_climb_burst_next_battle', False):
+            logger.warning('Climb burst entered next battle: finish previous round and take over')
+        self._climb_burst_next_battle = True
+        return True
+
+    def _confirm_climb_burst_next_battle(self) -> bool:
+        """Cover delayed entry after the last tap, before resource OCR or navigation."""
+        if not getattr(self, '_climb_burst_pending', False):
+            return False
+        if not getattr(self, '_climb_burst_next_battle', False):
+            deadline = time.monotonic() + 5.0
+            while time.monotonic() < deadline:
+                self.screenshot()
+                if self._capture_climb_burst_next_battle():
+                    break
+                time.sleep(0.25)
+        entered = self._climb_burst_next_battle
+        self._climb_burst_pending = False
+        self._climb_burst_next_battle = False
+        if entered:
+            self._climb_mode_review_pending = False
+        return entered
 
     def _restore_climb_mode_after_burst(self) -> None:
         """Restore the configured climb type if settlement taps changed the mode."""
@@ -296,7 +337,7 @@ class BaseAct(StateMachine, GameUi, GeneralBattle, SwitchSoul, ActivityShikigami
             f'expected={expected_type}, result={"success" if restored else "failed"}'
         )
 
-    def _execute_climb_detail(self, decision: SettlementDecision) -> None:
+    def _execute_climb_detail(self, decision: SettlementDecision) -> bool:
         planner = self._get_settlement_planner()
         region_name, (x, y) = planner.detail_point(self.climb_type)
         delay = planner.detail_delay()
@@ -310,7 +351,7 @@ class BaseAct(StateMachine, GameUi, GeneralBattle, SwitchSoul, ActivityShikigami
             f'battle={decision.battle_number}, delay={delay:.2f}s'
         )
         time.sleep(delay)
-        self._execute_climb_burst(reason='detail', battle_number=decision.battle_number)
+        return self._execute_climb_burst(reason='detail', battle_number=decision.battle_number)
 
     def _weighted_climb_settlement_click(self, context: BattleContext, battle_number: int) -> bool:
         timer = context.settlement_click_timer
@@ -339,13 +380,13 @@ class BaseAct(StateMachine, GameUi, GeneralBattle, SwitchSoul, ActivityShikigami
         decision = self._begin_climb_settlement(context)
         special_done = getattr(context, 'climb_settlement_special_done', False)
         if decision.kind == 'detail' and not special_done:
-            self._execute_climb_detail(decision)
+            entered = self._execute_climb_detail(decision)
             context.climb_settlement_special_done = True
-            return BattleAction.CONTINUE
+            return BattleAction.EXIT_WIN if entered else BattleAction.CONTINUE
         if decision.kind == 'burst' and not special_done:
-            self._execute_climb_burst(reason='random', battle_number=decision.battle_number)
+            entered = self._execute_climb_burst(reason='random', battle_number=decision.battle_number)
             context.climb_settlement_special_done = True
-            return BattleAction.CONTINUE
+            return BattleAction.EXIT_WIN if entered else BattleAction.CONTINUE
 
         self._weighted_climb_settlement_click(context, decision.battle_number)
         return BattleAction.CONTINUE
@@ -481,10 +522,16 @@ class BaseAct(StateMachine, GameUi, GeneralBattle, SwitchSoul, ActivityShikigami
     def _record_climb_consumption(self):
         """战斗成功进入后，记录本场的资源消耗，用于下一次 OCR 校正。"""
         consumption = self._climb_resource_consumption()
-        self.climb_pending_consumption[self.climb_type] = consumption
+        self.climb_pending_consumption[self.climb_type] = (
+            self.climb_pending_consumption.get(self.climb_type, 0) + consumption
+        )
         if self.climb_type == 'ap':
-            self.climb_pending_consumption['ap_pass'] = self._climb_ap_pass_consumption()
-            self.climb_pending_consumption['penta_pass'] = 1 if self._climb_penta_enabled() else 0
+            self.climb_pending_consumption['ap_pass'] = (
+                self.climb_pending_consumption.get('ap_pass', 0) + self._climb_ap_pass_consumption()
+            )
+            self.climb_pending_consumption['penta_pass'] = (
+                self.climb_pending_consumption.get('penta_pass', 0) + int(self._climb_penta_enabled())
+            )
         logger.info(
             f'Climb consumption snapshot: type={self.climb_type}, resource={consumption}, '
             f'ap_pass={self.climb_pending_consumption.get("ap_pass", "-")}, '
@@ -665,6 +712,11 @@ class BaseAct(StateMachine, GameUi, GeneralBattle, SwitchSoul, ActivityShikigami
         elif self.conf.general_climb.random_sleep:
             random_sleep(probability=0.2)
         if self.enter_battle():
+            self._run_entered_climb_battles()
+
+    def _run_entered_climb_battles(self):
+        """Count and handle each entered round with a fresh general battle context."""
+        while True:
             self._record_climb_consumption()
             if self.climb_type == 'pass':
                 mode = self.current_pass_mode or 'easy'
@@ -677,8 +729,12 @@ class BaseAct(StateMachine, GameUi, GeneralBattle, SwitchSoul, ActivityShikigami
                 self.count_map[self.climb_type] += 1
             self.run_general_battle(getattr(self.conf, f'{self.climb_type}_battle_conf'),
                                     battle_key=f'act_{self.climb_type}')
-            self._restore_climb_mode_after_burst()
             self._record_fatigue_battle()
+            if self._confirm_climb_burst_next_battle():
+                logger.info('Climb burst takeover: count new round without clicking challenge again')
+                continue
+            self._restore_climb_mode_after_burst()
+            return
 
     def enter_battle(self):
         click_times, max_times = 0, random.randint(3, 5)
