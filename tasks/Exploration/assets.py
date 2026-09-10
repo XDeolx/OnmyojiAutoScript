@@ -54,6 +54,8 @@ class ExplorationAssets:
 	C_CLICK_SETTINGS = RuleClick(roi_front=(55,662,21,21), roi_back=(55,662,21,21), name="click_settings")
 	# 选中候补出战 
 	C_CLICK_STANDBY_TEAM = RuleClick(roi_front=(545,222,506,100), roi_back=(545,222,506,100), name="click_standby_team")
+	# 收起探索聊天面板的右侧安全空白处
+	C_E_CHAT_DISMISS = RuleClick(roi_front=(1030,150,120,260), roi_back=(1030,150,120,260), name="e_chat_dismiss")
 
 
 	# Image Rule Assets
@@ -93,6 +95,8 @@ class ExplorationAssets:
 	I_GET_REWARD = RuleImage(roi_front=(464,231,339,44), roi_back=(464,231,339,44), threshold=0.8, method="Template matching", file="./tasks/Exploration/res/res_get_reward.png")
 	# description 
 	I_RED_CLOSE = RuleImage(roi_front=(1027,129,41,42), roi_back=(1021,121,54,55), threshold=0.6, method="Template matching", file="./tasks/Exploration/res/res_red_close.png")
+	# 探索页面的聊天频道面板
+	I_E_CHAT_PANEL = RuleImage(roi_front=(8,48,84,60), roi_back=(0,20,130,120), threshold=0.85, method="Template matching", file="./tasks/Exploration/res/res_e_chat_panel.png")
 	# description 
 	I_E_EXIT_CONFIRM = RuleImage(roi_front=(694,380,163,49), roi_back=(694,380,163,49), threshold=0.8, method="Template matching", file="./tasks/Exploration/res/res_e_exit_confirm.png")
 	# 困28滚动到最后 
@@ -152,5 +156,4 @@ class ExplorationAssets:
 	S_SWIPE_SHIKI_TO_LEFT = RuleSwipe(roi_front=(890,587,21,21), roi_back=(351,584,21,21), mode="default", name="swipe_shiki_to_left")
 	# 滑动一个式神的宽度 
 	S_SWIPE_SHIKI_TO_LEFT_ONE = RuleSwipe(roi_front=(977,582,21,21), roi_back=(889,584,21,22), mode="default", name="swipe_shiki_to_left_one")
-
 

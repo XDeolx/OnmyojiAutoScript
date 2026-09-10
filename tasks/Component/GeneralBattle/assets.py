@@ -55,6 +55,14 @@ class GeneralBattleAssets:
 	C_RANDOM_RIGHT = RuleClick(roi_front=(1185,115,79,388), roi_back=(1185,115,79,388), name="random_right")
 	# 上边随机点击 
 	C_RANDOM_TOP = RuleClick(roi_front=(250,58,868,68), roi_back=(250,58,868,68), name="random_top")
+	# 上方公告条左侧安全点击区
+	C_RANDOM_TOP_LEFT = RuleClick(roi_front=(250,58,159,68), roi_back=(250,58,159,68), name="random_top_left")
+	# 上方公告条右侧安全点击区
+	C_RANDOM_TOP_RIGHT = RuleClick(roi_front=(1056,58,62,68), roi_back=(1056,58,62,68), name="random_top_right")
+	# 上方公告条上侧安全点击区
+	C_RANDOM_TOP_ABOVE = RuleClick(roi_front=(410,58,646,5), roi_back=(410,58,646,5), name="random_top_above")
+	# 上方公告条下侧安全点击区
+	C_RANDOM_TOP_BELOW = RuleClick(roi_front=(410,115,646,11), roi_back=(410,115,646,11), name="random_top_below")
 	# 下边随机点击 
 	C_RANDOM_BOTTOM = RuleClick(roi_front=(462,599,492,78), roi_back=(462,599,492,78), name="random_bottom")
 	# 整体随机点击 
@@ -155,5 +163,3 @@ class GeneralBattleAssets:
 	S_BATTLE_RANDOM_LEFT = RuleSwipe(roi_front=(122,155,480,426), roi_back=(667,147,461,427), mode="default", name="battle_random_left")
 	# description 
 	S_BATTLE_RANDOM_RIGHT = RuleSwipe(roi_front=(719,138,417,392), roi_back=(237,163,387,394), mode="default", name="battle_random_right")
-
-

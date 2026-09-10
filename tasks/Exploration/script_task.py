@@ -54,6 +54,8 @@ class ScriptTask(BaseExploration):
         pages.page_battle_team_exit.connect(pages.page_exp_entrance, self.I_UI_CONFIRM, key="page_battle_team_exit->page_exp_entrance")
         while True:
             self.screenshot()
+            if self.recover_chat_panel():
+                continue
             current_page = self.get_current_page()
             if current_page is None:
                 time.sleep(0.5)
@@ -71,6 +73,16 @@ class ScriptTask(BaseExploration):
             except InviteFailedException as e:
                 logger.warning(e)
                 break
+
+    def recover_chat_panel(self) -> bool:
+        """关闭误触顶部公告后展开的探索聊天面板。"""
+        if not self.appear(self.I_E_CHAT_PANEL):
+            return False
+
+        logger.warning('Exploration chat panel detected, dismiss with a right-side blank click')
+        self.click(self.C_E_CHAT_DISMISS, interval=1)
+        self.device.click_record_clear()
+        return True
 
     def run_on_exp_main(self):
         if self.pre_page and self.pre_page != pages.page_exp_main:

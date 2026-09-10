@@ -56,15 +56,21 @@ def random_click(
 
 
 def reward_random_click() -> RuleClick:
-    """按拟人化权重选择奖励页面的安全退出区域。"""
+    """按拟人化权重选择奖励页面的安全退出区域。
+
+    顶部公告栏可展开聊天频道，因此避开公告条本身，保留其四周的安全区。
+    """
     return random.choices(
         (
             GeneralBattleAssets.C_RANDOM_LEFT,
-            GeneralBattleAssets.C_RANDOM_TOP,
+            GeneralBattleAssets.C_RANDOM_TOP_LEFT,
+            GeneralBattleAssets.C_RANDOM_TOP_RIGHT,
+            GeneralBattleAssets.C_RANDOM_TOP_ABOVE,
+            GeneralBattleAssets.C_RANDOM_TOP_BELOW,
             GeneralBattleAssets.C_RANDOM_RIGHT,
             GeneralBattleAssets.C_RANDOM_BOTTOM,
         ),
-        weights=(5, 10, 45, 40),
+        weights=(5, 4.3, 1.7, 1.3, 2.7, 45, 40),
         k=1,
     )[0]
 
