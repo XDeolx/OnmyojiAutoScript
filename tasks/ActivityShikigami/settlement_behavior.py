@@ -24,7 +24,7 @@ class EllipseRegion:
     def sample(
         self,
         scale: float = 0.82,
-        exclusions: tuple[tuple[int, int, int, int], ...] = (),
+        exclusions: tuple[tuple[int, int, int, int] | 'EllipseRegion', ...] = (),
     ) -> tuple[int, int]:
         """Sample uniformly by area inside an inset copy of the ellipse."""
         x1, y1, x2, y2 = self.bounds
@@ -36,15 +36,37 @@ class EllipseRegion:
             x = round(cx + math.cos(angle) * radius * (x2 - x1) / 2)
             y = round(cy + math.sin(angle) * radius * (y2 - y1) / 2)
             point = max(0, min(1279, x)), max(0, min(719, y))
-            if not any(point_in_bounds(point, bounds) for bounds in exclusions):
+            if not point_in_exclusions(point, exclusions):
                 return point
-        return round(cx), round(cy)
+
+        # A forbidden box may cover the ellipse centre. Search deterministic
+        # in-ellipse fallbacks instead of returning that unsafe centre point.
+        for radius in (scale, scale * 0.75, scale * 0.5, scale * 0.25, 0.0):
+            for step in range(16):
+                angle = math.tau * step / 16
+                point = (
+                    round(cx + math.cos(angle) * radius * (x2 - x1) / 2),
+                    round(cy + math.sin(angle) * radius * (y2 - y1) / 2),
+                )
+                if not point_in_exclusions(point, exclusions):
+                    return point
+        raise RuntimeError(f'No safe point available in settlement region {self.name}')
 
 
 def point_in_bounds(point: tuple[int, int], bounds: tuple[int, int, int, int]) -> bool:
     x, y = point
     x1, y1, x2, y2 = bounds
     return x1 <= x <= x2 and y1 <= y <= y2
+
+
+def point_in_exclusions(
+    point: tuple[int, int],
+    exclusions: tuple[tuple[int, int, int, int] | EllipseRegion, ...],
+) -> bool:
+    return any(
+        exclusion.contains(point) if isinstance(exclusion, EllipseRegion) else point_in_bounds(point, exclusion)
+        for exclusion in exclusions
+    )
 
 
 @dataclass(frozen=True)
@@ -86,9 +108,20 @@ SETTLEMENT_REGIONS = {
     11: EllipseRegion('R11', (18, 485, 276, 695)),
 }
 
-# The pass/AP switch is exposed immediately after leaving the reward page.
-# Keep every R7 click away from it even if a burst overlaps the transition.
+# Interactive controls exposed immediately after leaving the reward page.
+# No weighted settlement click may touch these areas.
 MODE_SWITCH_EXCLUSION = (1208, 518, 1279, 592)
+CLIMB_UI_EXCLUSIONS = (
+    # Top-left activity controls: title, strategy and lineup assistance.
+    (255, 0, 520, 72),
+)
+CLIMB_UI_DIAMOND_EXCLUSIONS = (
+    # Bottom-right: only the four interactive diamond buttons themselves.
+    DiamondRegion('Nurture', (708, 545, 797, 638)),
+    DiamondRegion('Assist', (800, 545, 888, 638)),
+    DiamondRegion('Lineup', (892, 545, 980, 638)),
+    DiamondRegion('ShikigamiRecords', (985, 545, 1073, 638)),
+)
 
 # Verified against a 1280x720 ADB screenshot of the current climb screen.
 # Use the button interior, with diamond corners excluded from the bounding box.
@@ -184,7 +217,9 @@ class ClimbSettlementPlanner:
         )[0]
         region_id = random.choice(self.template[category])
         region = SETTLEMENT_REGIONS[region_id]
-        exclusions = (MODE_SWITCH_EXCLUSION,) if region_id == 7 else ()
+        exclusions = CLIMB_UI_EXCLUSIONS + CLIMB_UI_DIAMOND_EXCLUSIONS
+        if region_id == 7:
+            exclusions += (MODE_SWITCH_EXCLUSION,)
         return category, region.name, region.sample(exclusions=exclusions)
 
     def detail_point(self, climb_type: str) -> tuple[str, tuple[int, int]]:
