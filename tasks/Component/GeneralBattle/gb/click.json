@@ -133,9 +133,9 @@
   },
   {
     "itemName": "random_bottom",
-    "roiFront": "462,599,492,78",
-    "roiBack": "462,599,492,78",
-    "description": "下边随机点击"
+    "roiFront": "610,599,344,78",
+    "roiBack": "610,599,344,78",
+    "description": "下边随机点击，避开左下增益按钮"
   },
   {
     "itemName": "random_all",

@@ -8,7 +8,7 @@ from cached_property import cached_property
 from module.atom.image import RuleImage
 from module.base.protect import random_sleep
 from module.base.timer import Timer
-from module.exception import TaskEnd
+from module.exception import TaskEnd, GamePageUnknownError
 from module.logger import logger
 
 from tasks.base_task import BaseTask
@@ -110,6 +110,12 @@ class StateMachine(BaseTask):
 
 
 class BaseAct(StateMachine, GameUi, GeneralBattle, SwitchSoul, ActivityShikigamiAssets):
+    I_SETTLEMENT_DETAIL_PANEL = RuleImage(
+        roi_front=(1205, 313, 32, 54), roi_back=(880, 160, 390, 560),
+        method='Template matching', threshold=0.85,
+        file='./tasks/ActivityShikigami/detail_panel_corner.png',
+    )
+
     """爬塔活动基类"""
 
     def _exit_matcher(self) -> ExitMatcher | None:
@@ -351,7 +357,37 @@ class BaseAct(StateMachine, GameUi, GeneralBattle, SwitchSoul, ActivityShikigami
             f'battle={decision.battle_number}, delay={delay:.2f}s'
         )
         time.sleep(delay)
-        return self._execute_climb_burst(reason='detail', battle_number=decision.battle_number)
+        return self._finish_climb_detail(decision.battle_number)
+
+    def _finish_climb_detail(self, battle_number: int) -> bool:
+        """Dismiss details before reusing the bottom-right settlement target."""
+        dismissed = False
+        for attempt in range(5):
+            if attempt:
+                time.sleep(0.3)
+            self.screenshot()
+            if self.is_in_real_battle(False) or self.is_in_prepare(False):
+                self._climb_burst_pending = True
+                return self._capture_climb_burst_next_battle()
+            current = GameUi.detect_page_in(
+                self, pages.page_act_pass, pages.page_act_ap,
+                pages.page_act_ap100, pages.page_act_boss,
+                include_global=False,
+            )
+            if current is not None:
+                self._climb_mode_review_pending = True
+                logger.info('爬塔详情关闭确认：已回到挑战页，跳过快速点击')
+                return False
+            if self.appear(self.I_SETTLEMENT_DETAIL_PANEL):
+                if not dismissed:
+                    self.device.click(110, 480, control_name='CLIMB_DETAIL_DISMISS')
+                    dismissed = True
+                    logger.info('爬塔详情遮挡：点击左侧空白关闭，等待确认')
+                continue
+            if GameUi.detect_page_in(self, pages.page_reward, include_global=False) is not None:
+                logger.info('爬塔详情关闭确认：仍在奖励页，继续结算')
+                return self._execute_climb_burst(reason='detail', battle_number=battle_number)
+        raise GamePageUnknownError('爬塔御魂详情关闭后页面未确认，取消快速点击')
 
     def _weighted_climb_settlement_click(self, context: BattleContext, battle_number: int) -> bool:
         timer = context.settlement_click_timer

@@ -64,7 +64,7 @@ class GeneralBattleAssets:
 	# 上方公告条下侧安全点击区
 	C_RANDOM_TOP_BELOW = RuleClick(roi_front=(410,115,646,11), roi_back=(410,115,646,11), name="random_top_below")
 	# 下边随机点击 
-	C_RANDOM_BOTTOM = RuleClick(roi_front=(462,599,492,78), roi_back=(462,599,492,78), name="random_bottom")
+	C_RANDOM_BOTTOM = RuleClick(roi_front=(610,599,344,78), roi_back=(610,599,344,78), name="random_bottom")
 	# 整体随机点击 
 	C_RANDOM_ALL = RuleClick(roi_front=(42,94,1207,543), roi_back=(42,94,1207,543), name="random_all")
 

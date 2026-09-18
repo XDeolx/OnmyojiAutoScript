@@ -7,7 +7,8 @@ import random
 
 from tasks.Component.SwitchSoul.switch_soul import SwitchSoul
 from tasks.RyouToppa.assets import RyouToppaAssets
-from tasks.Component.GeneralBattle.general_battle import GeneralBattle
+from tasks.Component.GeneralBattle.general_battle import GeneralBattle, BattleAction
+from tasks.GameUi.page import page_battle_result, page_reward
 from tasks.Component.config_base import ConfigBase, Time
 from tasks.GameUi.game_ui import GameUi
 from tasks.GameUi.page import page_realm_raid, page_main, page_kekkai_toppa, page_shikigami_records
@@ -80,6 +81,22 @@ def random_delay(min_value: float = 2.0, max_value: float = 10.0, decimal: int =
 
 
 class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RyouToppaAssets):
+    def _handle_missing_battle_page(self, context, config, exit_matcher):
+        if context.last_page not in (page_battle_result, page_reward):
+            return super()._handle_missing_battle_page(context, config, exit_matcher)
+        # A reward tooltip can hide the settlement matcher without leaving rewards.
+        if self.appear(self.I_TOPPA_RECORD):
+            logger.info('寮突破结算返回确认：已回到突破列表')
+            return BattleAction.EXIT_WIN if context.is_win else BattleAction.EXIT_LOSE
+        if context.reward_no_battle_ts is None:
+            context.reward_no_battle_ts = time.time()
+        elapsed = time.time() - context.reward_no_battle_ts
+        if elapsed >= 12:
+            raise GamePageUnknownError('寮突破结算后未返回突破列表，停止盲点')
+        if elapsed >= 2.5 and self.click(self.C_RANDOM_RIGHT, interval=1.0):
+            logger.info('寮突破结算返回恢复：点击右侧空白，等待突破列表确认')
+        return BattleAction.CONTINUE
+
     medal_grid: ImageGrid = None
     CLICK_REACTION_DELAY = (0.18, 0.22)
     PREPARE_CLICK_DELAY_RANGE = (2.5, 3.5)
