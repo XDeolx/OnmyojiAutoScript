@@ -1,11 +1,11 @@
 # This Python file uses the following encoding: utf-8
 # @author runhey
 # github https://github.com/runhey
-from time import sleep
+from time import sleep, monotonic
 from datetime import time, datetime, timedelta
 
 from module.logger import logger
-from module.exception import TaskEnd
+from module.exception import TaskEnd, GamePageUnknownError
 from module.base.timer import Timer
 
 from tasks.GameUi.game_ui import GameUi
@@ -92,11 +92,32 @@ class ScriptTask(GameUi, DelegationAssets):
         # ui_click(self.C_D_5, self.I_D_SELECT_5)
         # self.ui_click_until_disappear(self.I_D_START)
 
+    def _completed_area(self, rule):
+        # Do not use Full.filter: its single-character fallback matches task names.
+        results = rule.detect_and_ocr(self.device.image)
+        matches = [r for r in results or []
+                   if ''.join(r.ocr_text.split()) in ('完成', '已完成')]
+        if not matches:
+            return None
+        box = min(matches, key=lambda r: (r.box[0, 1], r.box[0, 0])).box
+        return (float(box[0, 0]) + rule.roi[0],
+                float(box[0, 1]) + rule.roi[1],
+                float(box[1, 0] - box[0, 0]),
+                float(box[2, 1] - box[0, 1]))
+
     def check_reward(self):
+        deadline = monotonic() + 90
         check_timer = Timer(3)
         check_timer.start()
         while 1:
             self.screenshot()
+            if monotonic() >= deadline:
+                raise GamePageUnknownError('式神委派奖励收取超时，停止重复点击')
+            if self.appear(self.I_D_CANCEL) and self.appear(self.I_D_CONFIRM):
+                if self.click(self.I_D_CANCEL, interval=1):
+                    logger.warning('式神委派收奖误入未完成任务，点击再考虑下返回')
+                check_timer.reset()
+                continue
             if self.appear_then_click(self.I_REWARDS_GET, interval=1):
                 check_timer.reset()
                 continue
@@ -121,10 +142,11 @@ class ScriptTask(GameUi, DelegationAssets):
                 continue
             if check_timer.reached():
                 break
-            if self.ocr_appear(self.O_D_DONE_CARD, interval=1):
+            area = self._completed_area(self.O_D_DONE_CARD)
+            if area is not None:
                 # The status ribbon itself is not clickable. Click the body of
                 # the first completed card while keeping the detected row.
-                _, y, _, _ = self.O_D_DONE_CARD.area
+                _, y, _, _ = area
                 self.device.click(
                     x=1165,
                     y=int(y + 55),
@@ -132,7 +154,11 @@ class ScriptTask(GameUi, DelegationAssets):
                 )
                 check_timer.reset()
                 continue
-            if self.ocr_appear_click(self.O_D_DONE, interval=1):
+            area = self._completed_area(self.O_D_DONE)
+            if area is not None:
+                x, y, w, h = area
+                self.device.click(int(x + w / 2), int(y + h / 2),
+                                  control_name='D_DONE')
                 check_timer.reset()
                 continue
 
@@ -147,5 +173,4 @@ if __name__ == '__main__':
 
     # t.delegate_one('弥助的画')
     t.run()
-
 
