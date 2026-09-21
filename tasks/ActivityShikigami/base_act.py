@@ -17,6 +17,7 @@ from tasks.ActivityShikigami.config import GeneralBattleConfig, ActivityShikigam
 from tasks.ActivityShikigami.settlement_behavior import ClimbSettlementPlanner, SettlementDecision
 from tasks.Component.SwitchSoul.switch_soul import SwitchSoul
 from tasks.GameUi.game_ui import GameUi
+from tasks.GameUi.assets import GameUiAssets
 import tasks.ActivityShikigami.page as pages
 from typing import Optional, Callable
 
@@ -110,6 +111,11 @@ class StateMachine(BaseTask):
 
 
 class BaseAct(StateMachine, GameUi, GeneralBattle, SwitchSoul, ActivityShikigamiAssets):
+    I_SETTLEMENT_MATERIAL_PANEL = RuleImage(
+        roi_front=(704, 24, 44, 28), roi_back=(300, 0, 970, 620),
+        method='Template matching', threshold=0.85,
+        file='./tasks/ActivityShikigami/material_detail_corner.png',
+    )
     I_SETTLEMENT_DETAIL_PANEL = RuleImage(
         roi_front=(1205, 313, 32, 54), roi_back=(880, 160, 390, 560),
         method='Template matching', threshold=0.85,
@@ -378,7 +384,8 @@ class BaseAct(StateMachine, GameUi, GeneralBattle, SwitchSoul, ActivityShikigami
                 self._climb_mode_review_pending = True
                 logger.info('爬塔详情关闭确认：已回到挑战页，跳过快速点击')
                 return False
-            if self.appear(self.I_SETTLEMENT_DETAIL_PANEL):
+            if (self.appear(self.I_SETTLEMENT_DETAIL_PANEL)
+                    or self.appear(self.I_SETTLEMENT_MATERIAL_PANEL)):
                 if not dismissed:
                     self.device.click(110, 480, control_name='CLIMB_DETAIL_DISMISS')
                     dismissed = True
@@ -774,10 +781,19 @@ class BaseAct(StateMachine, GameUi, GeneralBattle, SwitchSoul, ActivityShikigami
 
     def enter_battle(self):
         click_times, max_times = 0, random.randint(3, 5)
+        records_recovery_started = None
         while True:
             self.screenshot()
             if self.is_in_battle(False):
                 return True
+            if self.appear(GameUiAssets.I_CHECK_RECORDS):
+                if records_recovery_started is None:
+                    records_recovery_started = time.monotonic()
+                if time.monotonic() - records_recovery_started >= 10:
+                    raise GamePageUnknownError('爬塔误入式神录后返回超时')
+                if self.click(self.I_UI_BACK_YELLOW, interval=1.5):
+                    logger.warning('爬塔挑战前检测到式神录，返回后重新确认挑战入口')
+                continue
             if click_times >= max_times:
                 if self._confirm_battle_after_final_fire():
                     return True

@@ -115,12 +115,12 @@ CLIMB_UI_EXCLUSIONS = (
     # Top-left activity controls: title, strategy and lineup assistance.
     (255, 0, 520, 72),
 )
-CLIMB_UI_DIAMOND_EXCLUSIONS = (
-    # Bottom-right: only the four interactive diamond buttons themselves.
-    DiamondRegion('Nurture', (708, 545, 797, 638)),
-    DiamondRegion('Assist', (800, 545, 888, 638)),
-    DiamondRegion('Lineup', (892, 545, 980, 638)),
-    DiamondRegion('ShikigamiRecords', (985, 545, 1073, 638)),
+CLIMB_UI_BUTTON_EXCLUSIONS = (
+    # Include the labels: the clickable footprint is wider than each diamond.
+    (704, 542, 797, 640),
+    (798, 542, 887, 640),
+    (888, 542, 984, 640),
+    (985, 542, 1080, 640),
 )
 
 # Verified against a 1280x720 ADB screenshot of the current climb screen.
@@ -217,7 +217,7 @@ class ClimbSettlementPlanner:
         )[0]
         region_id = random.choice(self.template[category])
         region = SETTLEMENT_REGIONS[region_id]
-        exclusions = CLIMB_UI_EXCLUSIONS + CLIMB_UI_DIAMOND_EXCLUSIONS
+        exclusions = CLIMB_UI_EXCLUSIONS + CLIMB_UI_BUTTON_EXCLUSIONS
         if region_id == 7:
             exclusions += (MODE_SWITCH_EXCLUSION,)
         return category, region.name, region.sample(exclusions=exclusions)
