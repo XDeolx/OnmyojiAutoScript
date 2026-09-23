@@ -39,6 +39,19 @@ class GameUi(ChessBattleNavigationMixin, BaseTask, GameUiAssets):
 
     REPEATED_TRANSITION_FAILURE_THRESHOLD = 3
 
+    # Only used after normal navigation fails; never click the menu options.
+    COURTYARD_MENU_LABELS = (
+        (RuleOcr(name="courtyard_skin", mode="Single", method="Default",
+                 roi=(814, 363, 65, 29), area=(0, 0, 0, 0), keyword=""), "切换"),
+        (RuleOcr(name="courtyard_replace", mode="Single", method="Default",
+                 roi=(888, 450, 66, 32), area=(0, 0, 0, 0), keyword=""), "替换"),
+        (RuleOcr(name="courtyard_accessory", mode="Single", method="Default",
+                 roi=(816, 538, 65, 29), area=(0, 0, 0, 0), keyword=""), "配饰"),
+    )
+    COURTYARD_MENU_DISMISS = RuleClick(
+        roi_front=(1015, 535, 25, 20), roi_back=(1015, 535, 25, 20),
+        name="courtyard_interaction_dismiss")
+
     # 全局未知页关闭动作，所有任务共享。
     DEFAULT_UNKNOWN_CLOSERS = [
         GlobalGameAssets.I_UI_BACK_RED,
@@ -228,7 +241,65 @@ class GameUi(ChessBattleNavigationMixin, BaseTask, GameUiAssets):
             return page
 
         logger.warning(f"Page detect miss[{context}]: scoped={sorted_categories}")
+        self._log_courtyard_match_failure()
         return None
+
+    def _log_courtyard_match_failure(self) -> None:
+        # Reuse this frame's results, without extra screenshots or matching calls.
+        result = self.device.get_image_batch_cache(
+            self.I_CHECK_MAIN, frame_id=self.device.image_frame_id)
+        logger.warning(
+            f"Courtyard detect diagnostic: frame={self.device.image_frame_id}, "
+            f"result={result}, threshold={self.I_CHECK_MAIN.threshold}, "
+            f"roi={self.I_CHECK_MAIN.roi_back}, template={self.I_CHECK_MAIN.file}")
+
+    def _close_courtyard_interaction(self) -> bool:
+        def menu_visible():
+            return all(
+                "".join(rule.ocr(self.device.image).split()) == label
+                for rule, label in self.COURTYARD_MENU_LABELS
+            )
+
+        if not menu_visible():
+            return False
+        self.screenshot()
+        if not menu_visible():
+            return False
+        logger.info("Courtyard interaction menu detected; dismiss outside menu")
+        self.click(self.COURTYARD_MENU_DISMISS)
+        self.screenshot()
+        remaining = menu_visible()
+        logger.info(f"Courtyard interaction menu dismissed: {not remaining}")
+        if remaining:
+            return True
+        self._restore_courtyard_layout()
+        return True
+
+    def _restore_courtyard_layout(self) -> None:
+        from tasks.GameUi.default_pages import page_main, page_shikigami_records
+
+        # Do not recurse into goto_page from its unknown-page recovery handler.
+        logger.info("Restore courtyard layout: enter shikigami records")
+        deadline = time.monotonic() + 15
+        while time.monotonic() < deadline:
+            self.screenshot()
+            if self.confirm_page(page_shikigami_records):
+                break
+            self.appear_then_click(self.I_MAIN_GOTO_SHIKIGAMI_RECORDS, interval=2)
+        else:
+            raise GamePageUnknownError("Courtyard layout recovery: cannot enter shikigami records")
+
+        logger.info("Restore courtyard layout: return to courtyard")
+        deadline = time.monotonic() + 15
+        while time.monotonic() < deadline:
+            self.screenshot()
+            if self.confirm_page(page_main):
+                self.navigator.current_page = self.navigator.resolve_page(page_main)
+                logger.info("Courtyard layout restored; resume original navigation")
+                return
+            if self.confirm_page(page_shikigami_records):
+                self.appear_then_click(GlobalGameAssets.I_UI_BACK_YELLOW, interval=2)
+        raise GamePageUnknownError("Courtyard layout recovery: cannot confirm courtyard")
 
     def _detect_pages(
         self,
@@ -686,6 +757,10 @@ class GameUi(ChessBattleNavigationMixin, BaseTask, GameUiAssets):
 
         self.maybe_screenshot(skip_first_screenshot)
         logger.warning("Try switch to a supported page")
+        if self.navigator.unknown_close_history[-3:] != ["courtyard_interaction"] * 3:
+            if self._close_courtyard_interaction():
+                self._record_unknown_close_event("courtyard_interaction")
+                return True
         for action in [*self.navigator.local_unknown_closers, *self.DEFAULT_UNKNOWN_CLOSERS]:
             action_name = self._action_name(action)
             # 若最后3次执行的都是该动作，则跳过该动作尝试其他动作
