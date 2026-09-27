@@ -9,6 +9,9 @@ from module.atom.list import RuleList
 # Don't modify it manually.
 class OrochiAssets: 
 
+	I_SOUL_CHOICE_TITLE = RuleImage(roi_front=(794,228,196,25), roi_back=(748,210,290,60), threshold=0.85, method="Template matching", file="./tasks/Orochi/o/o_soul_choice_title.png")
+	I_SOUL_CHOICE_CLOSE = RuleImage(roi_front=(1108,127,43,38), roi_back=(1088,108,82,75), threshold=0.85, method="Template matching", file="./tasks/Orochi/o/o_soul_choice_close.png")
+
 
 	# Image Rule Assets
 	# 八级大蛇进入 

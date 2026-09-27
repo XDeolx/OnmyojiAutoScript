@@ -12,12 +12,12 @@ from tasks.Component.GeneralBuff.general_buff import GeneralBuff
 from tasks.Component.GeneralRoom.general_room import GeneralRoom
 from tasks.Component.SwitchSoul.switch_soul import SwitchSoul
 from tasks.GameUi.game_ui import GameUi
-from tasks.GameUi.page import any_of, page_main, page_reward, page_shikigami_records, page_soul_zones
+from tasks.GameUi.page import all_of, any_of, page_main, page_reward, page_shikigami_records, page_soul_zones
 from tasks.Orochi.assets import OrochiAssets
 from tasks.Orochi.config import Orochi, UserStatus, Layer
 from tasks.TrueOrochi.assets import TrueOrochiAssets
 from module.logger import logger
-from module.exception import TaskEnd
+from module.exception import TaskEnd, GamePageUnknownError
 from tasks.Orochi.page import page_orochi
 
 
@@ -31,17 +31,37 @@ class ScriptTask(GeneralBattle, GeneralInvite, GeneralBuff, GeneralRoom, GameUi,
         if reward_page is None:
             return
         reward_page.recognizer = any_of(self.I_GI_SURE, self.I_GREED_GHOST, self.I_PET_PRESENT,
+                                        all_of(self.I_SOUL_CHOICE_TITLE, self.I_SOUL_CHOICE_CLOSE),
                                         reward_page.recognizer)
 
     def _exit_matcher(self) -> ExitMatcher | None:
         return any_of(self.I_GI_EMOJI_1, self.I_GI_EMOJI_2, self.I_CHECK_EXPLORATION)
 
     def _handle_reward(self, context: BattleContext, config: GeneralBattleConfig) -> BattleAction:
+        if self._close_soul_choice():
+            context.reward_no_battle_ts = None
+            return BattleAction.CONTINUE
         # 无论胜利与否, 都会出现是否邀请一次队友, 区别在于, 失败的话不会出现那个勾选默认邀请的框
         if self.config.orochi.orochi_config.user_status == UserStatus.LEADER and \
             self.check_and_invite(self.config.orochi.invite_config.default_invite):
             return BattleAction.CONTINUE
         return super()._handle_reward(context, config)
+
+    def _close_soul_choice(self) -> bool:
+        if not self.appear(self.I_SOUL_CHOICE_TITLE):
+            self._soul_choice_attempts = 0
+            return False
+        # A visible title blocks ordinary settlement clicks even during animation.
+        attempts = getattr(self, '_soul_choice_attempts', 0)
+        if attempts >= 5:
+            raise GamePageUnknownError('Soul choice popup could not be closed after 5 checks')
+        self._soul_choice_attempts = attempts + 1
+        self.screenshot()
+        if self.appear(self.I_SOUL_CHOICE_TITLE) and self.appear(self.I_SOUL_CHOICE_CLOSE):
+            logger.info(f'Close soul choice popup, keep selected souls ({attempts + 1}/5)')
+            self.appear_then_click(self.I_SOUL_CHOICE_CLOSE, interval=1)
+        # Never issue an ordinary reward click in the same iteration.
+        return True
 
     def run(self) -> bool:
         self.switch_orochi_souls()

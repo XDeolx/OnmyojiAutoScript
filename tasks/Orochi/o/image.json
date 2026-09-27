@@ -1,5 +1,23 @@
 [
   {
+    "itemName": "soul_choice_title",
+    "imageName": "o_soul_choice_title.png",
+    "roiFront": "794,228,196,25",
+    "roiBack": "748,210,290,60",
+    "method": "Template matching",
+    "threshold": 0.85,
+    "description": "御魂时运加成固定标题"
+  },
+  {
+    "itemName": "soul_choice_close",
+    "imageName": "o_soul_choice_close.png",
+    "roiFront": "1108,127,43,38",
+    "roiBack": "1088,108,82,75",
+    "method": "Template matching",
+    "threshold": 0.85,
+    "description": "御魂时运加成关闭按钮"
+  },
+  {
     "itemName": "orochi",
     "imageName": "o_orochi.png",
     "roiFront": "279,278,47,60",
