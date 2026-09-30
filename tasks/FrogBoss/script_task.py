@@ -3,6 +3,7 @@
 # github https://github.com/runhey
 from cached_property import cached_property
 from datetime import datetime
+import cv2
 import requests
 import re
 import json
@@ -20,6 +21,7 @@ from tasks.Component.GeneralBattle.assets import GeneralBattleAssets
 from tasks.Component.config_base import TimeDelta
 from tasks.FrogBoss.assets import FrogBossAssets
 from tasks.FrogBoss.config import Strategy
+from tasks.FrogBoss.record_reader import read_record_rows
 from tasks.FrogBoss.frog_oas import OasHistory, fetch_predictions, fingerprint
 
 
@@ -40,11 +42,51 @@ class ScriptTask(RightActivity, FrogBossAssets, GeneralBattleAssets):
 
     def enter_frog_boss(self):
         self.screenshot()
-        if self.appear(self.I_FROG_CHECK):
+        if self.appear(self.I_FROG_CHECK) or self.appear(self.I_FROG_LOG_CHECK):
             return
         self.enter(self.I_FROG_BOSS_ENTER)
         if not self.wait_until_appear(self.I_FROG_CHECK, wait_time=10):
             raise GameStuckError('FrogBoss page not detected after entering activity')
+
+    def record_oas_history_page(self):
+        try:
+            timer = Timer(10).start()
+            while not timer.reached():
+                self.screenshot()
+                if self.appear(self.I_FROG_LOG_CHECK):
+                    break
+                if self.appear(self.I_FROG_CHECK):
+                    self.appear_then_click(self.I_FROG_LOG, interval=2)
+            else:
+                logger.warning('FrogBoss record page did not open; skipping history')
+                return
+            readings = []
+            for _ in range(2):
+                self.screenshot()
+                if not self.appear(self.I_FROG_LOG_CHECK):
+                    break
+                readings.append(read_record_rows(self.device.image, self))
+            if len(readings) != 2 or readings[0] != readings[1]:
+                self.oas_history.append('unverified_result', reason='unstable_record_page')
+                logger.warning('FrogBoss record page readings were not stable')
+                return
+            for stamp, won, side in dict.fromkeys(readings[0]):
+                result = self.oas_history.settle_record(stamp, won, selected_side=side)
+                logger.info(f'frog_oas record result: {result}, time={stamp}, won={won}, selected={side}')
+        except (ValueError, TypeError, IndexError, cv2.error) as exc:
+            logger.warning(f'FrogBoss record reading failed; skipping history: {exc}')
+        finally:
+            self._close_record_page()
+
+    def _close_record_page(self):
+        timer = Timer(10).start()
+        while not timer.reached():
+            self.screenshot()
+            if not self.appear(self.I_FROG_LOG_CHECK) and self.appear(self.I_FROG_CHECK):
+                return
+            if self.appear(self.I_FROG_LOG_CHECK):
+                self.appear_then_click(self.I_FROG_LOG_CLOSE, interval=2)
+        raise GameStuckError('FrogBoss record page did not safely return')
 
     def _is_result_page(self):
         if not self.appear(self.I_FROG_CHECK) or not self.appear(self.I_NEXT_COMPETITION):
@@ -68,9 +110,22 @@ class ScriptTask(RightActivity, FrogBossAssets, GeneralBattleAssets):
         if self.config.model.frog_boss.frog_boss_config.needs_strategy_selection:
             raise TaskEnd('Bilibili 策略已移除，请重新选择对弈竞猜策略后再启用任务。')
         self.enter_frog_boss()
+        history_checked = False
         # 进入主界面
         while 1:
             self.screenshot()
+
+            if not history_checked and self.config.model.frog_boss.frog_boss_config.strategy_frog == Strategy.Oas:
+                if (self.appear(self.I_FROG_LOG_CHECK) or self.appear(self.I_BETTED)
+                        or self.appear(self.I_FROG_BOSS_REST)
+                        or (self.appear(self.I_BET_LEFT) and self.appear(self.I_BET_RIGHT))):
+                    history_checked = True
+                    self.record_oas_history_page()
+                    continue
+
+            if self.appear(self.I_FROG_LOG_CHECK):
+                self._close_record_page()
+                continue
 
             # 已经下注
             if self.appear(self.I_BETTED):
