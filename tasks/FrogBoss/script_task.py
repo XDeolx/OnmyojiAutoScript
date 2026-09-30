@@ -28,7 +28,6 @@ from tasks.FrogBoss.frog_oas import OasHistory, fetch_predictions, fingerprint
 
 class ScriptTask(RightActivity, FrogBossAssets, GeneralBattleAssets):
     I_BET_REWARD_DETAILS = RuleImage(roi_front=(574,141,70,29), roi_back=(550,120,140,70), threshold=0.85, method="Template matching", file="./tasks/FrogBoss/fb/fb_bet_reward_details.png")
-    C_BET_AMOUNT = RuleClick((898,602,45,20), (898,602,45,20), name='FB_BET_AMOUNT_30')
     C_CLOSE_BET_DETAILS = RuleClick((1090,250,30,30), (1090,250,30,30), name='FB_CLOSE_BET_DETAILS')
 
     @cached_property
@@ -116,6 +115,7 @@ class ScriptTask(RightActivity, FrogBossAssets, GeneralBattleAssets):
             raise TaskEnd('Bilibili 策略已移除，请重新选择对弈竞猜策略后再启用任务。')
         self.enter_frog_boss()
         history_checked = False
+        idle_timer = Timer(5).start()
         # 进入主界面
         while 1:
             self.screenshot()
@@ -126,10 +126,12 @@ class ScriptTask(RightActivity, FrogBossAssets, GeneralBattleAssets):
                         or (self.appear(self.I_BET_LEFT) and self.appear(self.I_BET_RIGHT))):
                     history_checked = True
                     self.record_oas_history_page()
+                    idle_timer.reset()
                     continue
 
             if self.appear(self.I_FROG_LOG_CHECK):
                 self._close_record_page()
+                idle_timer.reset()
                 continue
 
             # 已经下注
@@ -145,8 +147,11 @@ class ScriptTask(RightActivity, FrogBossAssets, GeneralBattleAssets):
                 logger.info('You bet win')
                 self.record_oas_result()
                 self.detect()
-                while 1:
+                result_timer = Timer(20).start()
+                while not result_timer.reached():
                     self.screenshot()
+                    if self.appear(self.I_FROG_BOSS_REST) or self.appear(self.I_BETTED):
+                        break
                     if self.appear(self.I_BET_LEFT) and self.appear(self.I_BET_RIGHT):
                         break
                     if self.appear_then_click(self.I_BET_SUCCESS_BOX, interval=1):
@@ -155,22 +160,34 @@ class ScriptTask(RightActivity, FrogBossAssets, GeneralBattleAssets):
                         continue
                     if self.appear_then_click(self.I_NEXT_COMPETITION, interval=4):
                         continue
+                else:
+                    raise GameStuckError('FrogBoss winning result did not advance within 20 seconds')
+                idle_timer.reset()
                 continue
             # 竞猜失败
             if self.appear(self.I_BET_FAILURE) or self.appear(self.I_BET_FAILURE_ANNIVERSARY):
                 logger.info('You bet lose')
                 self.record_oas_result()
                 self._advance_result_page()
+                idle_timer.reset()
                 continue
             if self._is_result_page():
                 logger.warning('FrogBoss result fallback: next button and result mark detected')
                 self.record_oas_result()
                 self._advance_result_page()
+                idle_timer.reset()
                 continue
             # 正式竞猜
             if self.appear(self.I_BET_LEFT) and self.appear(self.I_BET_RIGHT):
                 self.do_bet()
+                idle_timer.reset()
                 continue
+
+            if not self.appear(self.I_FROG_CHECK):
+                idle_timer.reset()
+            elif idle_timer.reached() and self.appear_then_click(self.I_NEXT_COMPETITION, interval=2):
+                logger.warning('FrogBoss idle fallback: next competition detected; advance without recording outcome')
+                idle_timer.reset()
 
         logger.info('FrogBoss end')
         self.next_run()
@@ -243,7 +260,9 @@ class ScriptTask(RightActivity, FrogBossAssets, GeneralBattleAssets):
     def _finish_bet(self):
         logger.info('Formal bet')
         timer = Timer(20).start()
-        amount_selected = False
+        attempts = 0
+        phase = 'select'
+        verify_timer = None
         while not timer.reached():
             self.screenshot()
             if self.appear(self.I_BET_REWARD_DETAILS):
@@ -251,18 +270,27 @@ class ScriptTask(RightActivity, FrogBossAssets, GeneralBattleAssets):
                 continue
             if self.appear(self.I_BETTED):
                 return
-            if not amount_selected:
-                if self.appear(self.I_BET_SURE) and self.appear(self.I_GOLD_30):
-                    self.click(self.C_BET_AMOUNT)
-                    amount_selected = True
-                    logger.info('FrogBoss selected 30w amount using price label')
-                continue
-            if self.appear_then_click(self.I_BET_SURE, interval=3):
-                continue
             if self.appear_then_click(self.I_UI_CONFIRM, interval=2):
                 continue
             if self.appear_then_click(self.I_UI_CONFIRM_SAMLL, interval=2):
                 continue
+            if phase == 'select':
+                if self.appear(self.I_BET_SURE) and self.appear(self.I_GOLD_30):
+                    if attempts >= 3:
+                        raise GameStuckError('FrogBoss betting failed after 3 attempts')
+                    self.click(self.I_GOLD_30)
+                    attempts += 1
+                    phase = 'submit'
+                    logger.info(f'FrogBoss 30w selection attempt {attempts}/3')
+                continue
+            if phase == 'submit':
+                if self.appear_then_click(self.I_BET_SURE, interval=2):
+                    phase = 'verify'
+                    verify_timer = Timer(3).start()
+                continue
+            if verify_timer.reached() and self.appear(self.I_BET_SURE) and self.appear(self.I_GOLD_30):
+                logger.warning('FrogBoss not betted; selection page still visible, retry selection')
+                phase = 'select'
         raise GameStuckError('FrogBoss betting did not complete within 20 seconds')
 
     def detect(self) -> bool:
