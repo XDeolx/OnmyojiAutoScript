@@ -9,6 +9,8 @@ from module.atom.list import RuleList
 # Don't modify it manually.
 class FrogBossAssets: 
 
+	I_BET_FAILURE_ANNIVERSARY = RuleImage(roi_front=(618,273,269,84), roi_back=(560,245,380,145), threshold=0.8, method="Template matching", file="./tasks/FrogBoss/fb/fb_bet_failure_anniversary.png")
+
 
 	# Image Rule Assets
 	# 左边竞猜 

@@ -46,6 +46,24 @@ class ScriptTask(RightActivity, FrogBossAssets, GeneralBattleAssets):
         if not self.wait_until_appear(self.I_FROG_CHECK, wait_time=10):
             raise GameStuckError('FrogBoss page not detected after entering activity')
 
+    def _is_result_page(self):
+        if not self.appear(self.I_FROG_CHECK) or not self.appear(self.I_NEXT_COMPETITION):
+            return False
+        return any(self.appear(rule) for rule in (
+            self.I_BET_FAILURE_ANNIVERSARY, self.I_BET_FAILURE,
+            self.I_SUCCESS_LEFT, self.I_SUCCESS_RIGHT,
+            self.I_FAILURE_LEFT, self.I_FAILURE_RIGHT))
+
+    def _advance_result_page(self):
+        timer = Timer(12).start()
+        while not timer.reached():
+            self.screenshot()
+            if not self.appear(self.I_NEXT_COMPETITION):
+                return
+            if self._is_result_page():
+                self.appear_then_click(self.I_NEXT_COMPETITION, interval=2)
+        raise GameStuckError('FrogBoss result page: next competition did not advance')
+
     def run(self):
         if self.config.model.frog_boss.frog_boss_config.needs_strategy_selection:
             raise TaskEnd('Bilibili 策略已移除，请重新选择对弈竞猜策略后再启用任务。')
@@ -79,11 +97,15 @@ class ScriptTask(RightActivity, FrogBossAssets, GeneralBattleAssets):
                         continue
                 continue
             # 竞猜失败
-            if self.appear(self.I_BET_FAILURE):
+            if self.appear(self.I_BET_FAILURE) or self.appear(self.I_BET_FAILURE_ANNIVERSARY):
                 logger.info('You bet lose')
                 self.record_oas_result()
-                self.ui_click_until_disappear(self.I_NEXT_COMPETITION)
-                self.detect()
+                self._advance_result_page()
+                continue
+            if self._is_result_page():
+                logger.warning('FrogBoss result fallback: next button and result mark detected')
+                self.record_oas_result()
+                self._advance_result_page()
                 continue
             # 正式竞猜
             if self.appear(self.I_BET_LEFT) and self.appear(self.I_BET_RIGHT):

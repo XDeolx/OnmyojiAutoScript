@@ -1,5 +1,14 @@
 [
   {
+    "itemName": "bet_failure_anniversary",
+    "imageName": "fb_bet_failure_anniversary.png",
+    "roiFront": "618,273,269,84",
+    "roiBack": "560,245,380,145",
+    "method": "Template matching",
+    "threshold": 0.8,
+    "description": "十周年竞猜失败结果"
+  },
+  {
     "itemName": "frog_boss_enter",
     "imageName": "fb_frog_boss_enter.png",
     "roiFront": "1188,303,36,38",
