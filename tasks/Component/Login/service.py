@@ -38,6 +38,7 @@ class LoginService(BaseTask, RestartAssets, GameUiAssets):
         skip_login_animation = True
         skip_click_mx_cnt = 5
         login_success = False
+        enter_game_fallback_used = False
 
         while 1:
             if not login_success and orientation_timer.reached():
@@ -136,6 +137,20 @@ class LoginService(BaseTask, RestartAssets, GameUiAssets):
                 skip_login_animation = False  # 进入登录页面后不再处理登录动画逻辑
                 self.wait_until_appear(self.I_LOGIN_SPECIFIC_SERVE, True, wait_time=5)
                 continue
+
+            # Recheck without cooldown: a throttled OCR click is not a failed recognition.
+            if (
+                not enter_game_fallback_used
+                and self.appear(self.I_LOGIN_8)
+                and not self.ocr_appear(self.O_LOGIN_ENTER_GAME)
+                and not self.ocr_appear(self.O_LOGIN_ENTER_GAME_VERTICAL)
+            ):
+                if self.click(self.C_LOGIN_ENTER_GAME, interval=3):
+                    enter_game_fallback_used = True
+                    skip_login_animation = False
+                    logger.info('Enter game OCR unavailable; clicked login fallback area')
+                    self.wait_until_appear(self.I_LOGIN_SPECIFIC_SERVE, True, wait_time=5)
+                    continue
 
         return login_success
 
