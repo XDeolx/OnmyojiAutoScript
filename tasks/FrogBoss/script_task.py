@@ -12,6 +12,7 @@ from pathlib import Path
 from module.exception import GameStuckError, TaskEnd
 from module.logger import logger
 from module.atom.image import RuleImage
+from module.atom.click import RuleClick
 from module.base.timer import Timer
 
 from tasks.GameUi.game_ui import GameUi
@@ -26,6 +27,10 @@ from tasks.FrogBoss.frog_oas import OasHistory, fetch_predictions, fingerprint
 
 
 class ScriptTask(RightActivity, FrogBossAssets, GeneralBattleAssets):
+    I_BET_REWARD_DETAILS = RuleImage(roi_front=(574,141,70,29), roi_back=(550,120,140,70), threshold=0.85, method="Template matching", file="./tasks/FrogBoss/fb/fb_bet_reward_details.png")
+    C_BET_AMOUNT = RuleClick((898,602,45,20), (898,602,45,20), name='FB_BET_AMOUNT_30')
+    C_CLOSE_BET_DETAILS = RuleClick((1090,250,30,30), (1090,250,30,30), name='FB_CLOSE_BET_DETAILS')
+
     @cached_property
     def oas_history(self):
         instance = re.sub(r'[^\w.-]', '_', self.config.config_name)
@@ -200,7 +205,6 @@ class ScriptTask(RightActivity, FrogBossAssets, GeneralBattleAssets):
             raise TaskEnd('请重新选择有效的对弈竞猜策略，当前配置禁止下注。')
         logger.hr('do bet', level=2)
         self.screenshot()
-        flag_glod_30 = 0
         count_left = self.O_LEFT_COUNT.ocr(self.device.image)
         count_right = self.O_RIGHT_COUNT.ocr(self.device.image)
         match self.config.model.frog_boss.frog_boss_config.strategy_frog:
@@ -234,32 +238,32 @@ class ScriptTask(RightActivity, FrogBossAssets, GeneralBattleAssets):
                 raise ValueError(f'Unknown bet mode: {self.config.model.frog_boss.frog_boss_config.strategy_frog}')
         logger.info(f'You strategy is {self.config.model.frog_boss.frog_boss_config.strategy_frog} and bet on {click_image}')
         self.ui_click_until_disappear(click_image)
-        gold_30_timer = Timer(10)
-        gold_30_timer.start()
-        while 1:
-            self.screenshot()
-            if self.appear(self.I_GOLD_30_CHECK):
-                break
-            if gold_30_timer.reached():
-                logger.info('Gold 30 not appear')
-                break
-            if self.appear_then_click(self.I_GOLD_30, interval=3):
-                continue
-        # 正式下注
+        self._finish_bet()
+
+    def _finish_bet(self):
         logger.info('Formal bet')
-        while 1:
+        timer = Timer(20).start()
+        amount_selected = False
+        while not timer.reached():
             self.screenshot()
-            if self.appear(self.I_BETTED):
-                break
-            if self.appear_then_click(self.I_BET_SURE, interval=2) and flag_glod_30 == 1:
+            if self.appear(self.I_BET_REWARD_DETAILS):
+                self.click(self.C_CLOSE_BET_DETAILS, interval=2)
                 continue
-            if self.appear_then_click(self.I_GOLD_30, interval=2):
-                flag_glod_30 = 1
+            if self.appear(self.I_BETTED):
+                return
+            if not amount_selected:
+                if self.appear(self.I_BET_SURE) and self.appear(self.I_GOLD_30):
+                    self.click(self.C_BET_AMOUNT)
+                    amount_selected = True
+                    logger.info('FrogBoss selected 30w amount using price label')
+                continue
+            if self.appear_then_click(self.I_BET_SURE, interval=3):
                 continue
             if self.appear_then_click(self.I_UI_CONFIRM, interval=2):
                 continue
             if self.appear_then_click(self.I_UI_CONFIRM_SAMLL, interval=2):
                 continue
+        raise GameStuckError('FrogBoss betting did not complete within 20 seconds')
 
     def detect(self) -> bool:
         """

@@ -106,6 +106,9 @@ class OasHistory:
     def settle_record(self, time_text, bet_won, selected_side=None):
         """Associate the latest visible record by exact date and round, never lineup."""
         match = re.fullmatch(r'\s*(\d{4})[./-](\d{1,2})[./-](\d{1,2})\s+(\d{1,2})[:：](\d{2})\s*', str(time_text))
+        if match is None:
+            # OCR can omit the space and colon; require fixed-width fields.
+            match = re.fullmatch(r'\s*(\d{4})[./-](\d{2})[./-](\d{2})\s*(\d{2})[:：]?(\d{2})\s*', str(time_text))
         played = None
         if match:
             try:
