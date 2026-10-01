@@ -29,6 +29,8 @@ from tasks.FrogBoss.frog_oas import OasHistory, fetch_predictions, fingerprint
 class ScriptTask(RightActivity, FrogBossAssets, GeneralBattleAssets):
     I_BET_REWARD_DETAILS = RuleImage(roi_front=(574,141,70,29), roi_back=(550,120,140,70), threshold=0.85, method="Template matching", file="./tasks/FrogBoss/fb/fb_bet_reward_details.png")
     C_CLOSE_BET_DETAILS = RuleClick((1090,250,30,30), (1090,250,30,30), name='FB_CLOSE_BET_DETAILS')
+    I_GOLD_30_SELECTED = RuleImage(roi_front=(840,622,138,15), roi_back=(835,618,148,22), threshold=0.95, method="Template matching", file="./tasks/FrogBoss/fb/fb_gold_30_selected.png")
+    C_BET_AMOUNT = RuleClick((865,601,98,25), (865,601,98,25), name='FB_BET_AMOUNT_30')
 
     @cached_property
     def oas_history(self):
@@ -261,6 +263,7 @@ class ScriptTask(RightActivity, FrogBossAssets, GeneralBattleAssets):
         logger.info('Formal bet')
         timer = Timer(20).start()
         attempts = 0
+        selection_clicks = 0
         phase = 'select'
         verify_timer = None
         while not timer.reached():
@@ -278,13 +281,22 @@ class ScriptTask(RightActivity, FrogBossAssets, GeneralBattleAssets):
                 if self.appear(self.I_BET_SURE) and self.appear(self.I_GOLD_30):
                     if attempts >= 3:
                         raise GameStuckError('FrogBoss betting failed after 3 attempts')
-                    self.click(self.I_GOLD_30)
-                    attempts += 1
-                    phase = 'submit'
-                    logger.info(f'FrogBoss 30w selection attempt {attempts}/3')
+                    if self.appear(self.I_GOLD_30_SELECTED):
+                        phase = 'submit'
+                        logger.info('FrogBoss 30w highlight verified; proceed to submit')
+                    elif selection_clicks >= 3:
+                        raise GameStuckError('FrogBoss 30w highlight not detected after 3 selection clicks')
+                    elif self.click(self.C_BET_AMOUNT, interval=2):
+                        selection_clicks += 1
+                        logger.info(f'FrogBoss lower amount selection {selection_clicks}/3; waiting for highlight')
                 continue
             if phase == 'submit':
+                if not self.appear(self.I_GOLD_30_SELECTED):
+                    phase = 'select'
+                    continue
                 if self.appear_then_click(self.I_BET_SURE, interval=2):
+                    attempts += 1
+                    logger.info(f'FrogBoss submit attempt {attempts}/3 with 30w highlight')
                     phase = 'verify'
                     verify_timer = Timer(3).start()
                 continue
