@@ -20,6 +20,12 @@ from module.atom.image_grid import ImageGrid
 from module.base.utils import point2str
 from module.base.timer import Timer
 from module.exception import GamePageUnknownError
+from module.atom.image import RuleImage
+from module.atom.click import RuleClick
+
+
+class RyouPageRecovered(Exception):
+    """Restart target selection after leaving an unexpected page."""
 
 
 area_map = (
@@ -81,6 +87,42 @@ def random_delay(min_value: float = 2.0, max_value: float = 10.0, decimal: int =
 
 
 class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RyouToppaAssets):
+    I_RAID_ASSISTANT = RuleImage(roi_front=(90,18,126,42), roi_back=(80,10,150,60), threshold=0.9, method="Template matching", file="./tasks/RyouToppa/res/res_raid_assistant.png")
+    C_ASSISTANT_BACK = RuleClick((25,23,28,30), (25,23,28,30), name='RYOU_ASSISTANT_BACK')
+
+    def screenshot(self):
+        image = super().screenshot()
+        if not getattr(self, '_ryou_page_guard', False):
+            return image
+        if not (self.appear(self.I_RAID_ASSISTANT) or self.appear(self.I_REAL_RAID_REFRESH)):
+            return image
+        self._recover_ryou_page()
+        raise RyouPageRecovered()
+
+    def _recover_ryou_page(self):
+        timer = Timer(10).start()
+        clicks = 0
+        while not timer.reached():
+            assistant = self.appear(self.I_RAID_ASSISTANT)
+            personal = self.appear(self.I_REAL_RAID_REFRESH)
+            if not assistant and not personal and any(self.appear(rule) for rule in (
+                    self.I_RYOU_REWARD, self.I_RYOU_REWARD_90,
+                    self.I_SUCCESS_PENETRATION, self.I_NO_SELECT_RYOU,
+                    self.I_SELECT_RYOU_BUTTON)):
+                logger.info('寮突破误入恢复：已确认回到阴阳寮，重新检查目标')
+                return
+            if clicks < 3:
+                if assistant:
+                    if self.click(self.C_ASSISTANT_BACK, interval=1.5):
+                        clicks += 1
+                        logger.warning('寮突破误入阵容助手，点击返回')
+                elif personal and self.appear_then_click(self.I_RYOU_TOPPA, interval=1.5):
+                    clicks += 1
+                    logger.warning('寮突破误入个人突破，切换阴阳寮')
+            # Bypass this guard while recovering; unknown frames receive no clicks.
+            super().screenshot()
+        raise GamePageUnknownError('寮突破误入恢复失败，停止点击并保留错误截图')
+
     def _handle_missing_battle_page(self, context, config, exit_matcher):
         if context.last_page not in (page_battle_result, page_reward):
             return super()._handle_missing_battle_page(context, config, exit_matcher)
@@ -103,6 +145,21 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RyouToppaAssets):
     SETTLEMENT_CLICK_INTERVAL_RANGE = (0.65, 0.95)
 
     def run(self):
+        self._ryou_page_guard = True
+        recoveries = 0
+        try:
+            while True:
+                try:
+                    return self._run_ryou_task()
+                except RyouPageRecovered:
+                    recoveries += 1
+                    if recoveries > 3:
+                        raise GamePageUnknownError('寮突破反复误入其他页面，停止任务')
+                    logger.warning(f'寮突破恢复后重新检查流程: {recoveries}/3')
+        finally:
+            self._ryou_page_guard = False
+
+    def _run_ryou_task(self):
         """
         执行
         :return:
@@ -292,6 +349,7 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RyouToppaAssets):
         duration = 0.352
         count = random.randint(1, 3)
         for i in range(count):
+            self.screenshot()
             # 测试过很多次 win32api, win32gui 的 MOUSEEVENTF_WHEEL, WM_MOUSEWHEEL
             # 都出现过很多次离奇的事件，索性放弃了使用以下方法，参数是精心调试的
             # 每次执行刚好刷新一组（2个）设定随机刷新 1 - 3 次
