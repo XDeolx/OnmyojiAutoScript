@@ -470,8 +470,8 @@
   {
     "itemName": "challenge_ensure",
     "imageName": "res_ryou_dokan_challenge_ensure.png",
-    "roiFront": "0,0,1280,720",
-    "roiBack": "0,0,1280,720",
+    "roiFront": "664,408,180,64",
+    "roiBack": "664,408,180,64",
     "method": "Template matching",
     "threshold": 0.8,
     "description": "查找道馆时,确认挑战按钮"

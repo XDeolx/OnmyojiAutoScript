@@ -145,7 +145,7 @@ class DokanAssets:
 	# 查找道馆时,挑战按钮 
 	I_CENTER_CHALLENGE = RuleImage(roi_front=(0,0,1280,720), roi_back=(0,0,1280,720), threshold=0.8, method="Template matching", file="./tasks/Dokan/res/res_ryou_dokan_center_challenge.png")
 	# 查找道馆时,确认挑战按钮 
-	I_CHALLENGE_ENSURE = RuleImage(roi_front=(0,0,1280,720), roi_back=(0,0,1280,720), threshold=0.8, method="Template matching", file="./tasks/Dokan/res/res_ryou_dokan_challenge_ensure.png")
+	I_CHALLENGE_ENSURE = RuleImage(roi_front=(664,408,180,64), roi_back=(664,408,180,64), threshold=0.8, method="Template matching", file="./tasks/Dokan/res/res_ryou_dokan_challenge_ensure.png")
 	# 查找道馆时,确认刷新道馆列表按钮 
 	I_REFRESH_ENSURE = RuleImage(roi_front=(0,0,1280,720), roi_back=(0,0,1280,720), threshold=0.8, method="Template matching", file="./tasks/Dokan/res/res_ryou_dokan_refresh_ensure.png")
 	# 查找道馆时,右侧道馆赏金图标,为了定位该图右侧的 赏金金额 
