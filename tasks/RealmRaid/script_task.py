@@ -513,7 +513,7 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RealmRaidAssets):
                 return True
             if self.appear_then_click(self.I_SHOW_AGAIN, interval=2):
                 continue
-            if self.appear_then_click(self.I_FRESH_ENSURE, interval=2):
+            if self.appear_then_click(self.I_UI_CONFIRM, interval=2):
                 continue
             if self.appear_then_click(self.I_FIRE_AGAIN, interval=2):
                 continue
