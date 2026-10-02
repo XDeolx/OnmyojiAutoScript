@@ -107,7 +107,7 @@ class AbyssShadowsAssets:
 	# 开启按钮 
 	I_BTN_START = RuleImage(roi_front=(1120,570,100,120), roi_back=(1120,570,100,120), threshold=0.8, method="Template matching", file="./tasks/AbyssShadows/res/res_btn_start.png")
 	# 开启确认按钮 
-	I_START_ENSURE = RuleImage(roi_front=(660,390,190,80), roi_back=(660,390,190,80), threshold=0.8, method="Template matching", file="./tasks/AbyssShadows/res/res_start_ensure.png")
+	I_START_ENSURE = RuleImage(roi_front=(664,408,180,64), roi_back=(664,408,180,64), threshold=0.8, method="Template matching", file="./tasks/AbyssShadows/res/res_start_ensure.png")
 	# 当附近有可用怪物时，右下角出现的开始战斗按钮 
 	I_ABYSS_ENEMY_FIRE = RuleImage(roi_front=(1100,560,130,130), roi_back=(1100,560,130,130), threshold=0.8, method="Template matching", file="./tasks/AbyssShadows/res/res_abyss_enemy_fire.png")
 	# 红标主怪 

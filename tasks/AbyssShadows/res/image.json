@@ -254,8 +254,8 @@
   {
     "itemName": "start_ensure",
     "imageName": "res_start_ensure.png",
-    "roiFront": "660,390,190,80",
-    "roiBack": "660,390,190,80",
+    "roiFront": "664,408,180,64",
+    "roiBack": "664,408,180,64",
     "method": "Template matching",
     "threshold": 0.8,
     "description": "开启确认按钮"
