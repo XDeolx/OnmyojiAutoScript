@@ -140,7 +140,7 @@ class GeneralBattleAssets:
 	# 关闭御魂不一致提示弹窗 
 	I_CONFIRM_CLOSE_DIFF_SOUL = RuleImage(roi_front=(550,408,180,64), roi_back=(517,374,226,112), threshold=0.8, method="Template matching", file="./tasks/Component/GeneralBattle/gb/gb_confirm_close_diff_soul.png")
 	# 禁用御魂不一致提示7天 
-	I_DISABLE_7DAYS_DIFF_SOUL = RuleImage(roi_front=(547,342,27,36), roi_back=(524,325,70,71), threshold=0.8, method="Template matching", file="./tasks/Component/GeneralBattle/gb/gb_disable_7days_diff_soul.png")
+	I_DISABLE_7DAYS_DIFF_SOUL = RuleImage(roi_front=(548,348,26,26), roi_back=(524,325,70,71), threshold=0.8, method="Template matching", file="./tasks/Component/GeneralBattle/gb/gb_disable_7days_diff_soul.png")
 
 
 	# Ocr Rule Assets
