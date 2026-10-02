@@ -3,6 +3,7 @@
 # github https://github.com/runhey
 from cached_property import cached_property
 from datetime import datetime
+from time import sleep
 import cv2
 import requests
 import re
@@ -102,6 +103,21 @@ class ScriptTask(RightActivity, FrogBossAssets, GeneralBattleAssets):
             self.I_SUCCESS_LEFT, self.I_SUCCESS_RIGHT,
             self.I_FAILURE_LEFT, self.I_FAILURE_RIGHT))
 
+    def confirmed_finish_marker(self):
+        marker = next((rule for rule in (self.I_BETTED, self.I_FROG_BOSS_REST)
+                       if self.appear(rule)), None)
+        if marker is None:
+            return None
+        sleep(0.2)
+        self.screenshot()
+        if (self.appear(self.I_FROG_LOG_CHECK) or self.appear(self.I_BET_REWARD_DETAILS)
+                or (self.appear(self.I_BET_LEFT) and self.appear(self.I_BET_RIGHT))):
+            return None
+        if self.appear(marker):
+            return marker
+        logger.info('FrogBoss finish marker disappeared on recheck; continue task')
+        return None
+
     def _advance_result_page(self):
         timer = Timer(12).start()
         while not timer.reached():
@@ -136,14 +152,12 @@ class ScriptTask(RightActivity, FrogBossAssets, GeneralBattleAssets):
                 idle_timer.reset()
                 continue
 
-            # 已经下注
-            if self.appear(self.I_BETTED):
-                logger.info('You have betted')
-                break
-            # 休息中
-            if self.appear(self.I_FROG_BOSS_REST):
-                logger.info('Frog Boss Rest')
-                break
+            if self.appear(self.I_BETTED) or self.appear(self.I_FROG_BOSS_REST):
+                marker = self.confirmed_finish_marker()
+                if marker is not None:
+                    logger.info('You have betted' if marker == self.I_BETTED else 'Frog Boss Rest')
+                    break
+                continue
             # 竞猜成功
             if self.appear(self.I_BET_SUCCESS):
                 logger.info('You bet win')
@@ -153,7 +167,9 @@ class ScriptTask(RightActivity, FrogBossAssets, GeneralBattleAssets):
                 while not result_timer.reached():
                     self.screenshot()
                     if self.appear(self.I_FROG_BOSS_REST) or self.appear(self.I_BETTED):
-                        break
+                        if self.confirmed_finish_marker() is not None:
+                            break
+                        continue
                     if self.appear(self.I_BET_LEFT) and self.appear(self.I_BET_RIGHT):
                         break
                     if self.appear_then_click(self.I_BET_SUCCESS_BOX, interval=1):
@@ -271,8 +287,10 @@ class ScriptTask(RightActivity, FrogBossAssets, GeneralBattleAssets):
             if self.appear(self.I_BET_REWARD_DETAILS):
                 self.click(self.C_CLOSE_BET_DETAILS, interval=2)
                 continue
-            if self.appear(self.I_BETTED):
-                return
+            if self.appear(self.I_BETTED) or self.appear(self.I_FROG_BOSS_REST):
+                if self.confirmed_finish_marker() is not None:
+                    return
+                continue
             if self.appear_then_click(self.I_UI_CONFIRM, interval=2):
                 continue
             if self.appear_then_click(self.I_UI_CONFIRM_SAMLL, interval=2):
