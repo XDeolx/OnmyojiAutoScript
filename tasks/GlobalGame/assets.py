@@ -45,6 +45,7 @@ class GlobalGameAssets:
 	I_UI_CANCEL = RuleImage(roi_front=(436,408,180,64), roi_back=(416,388,220,104), threshold=0.8, method="Template matching", file="./tasks/GlobalGame/ui/ui_ui_cancel.png")
 	# '获得奖励' 四个大字 
 	I_UI_REWARD = RuleImage(roi_front=(481,185,317,42), roi_back=(464,142,350,145), threshold=0.73, method="Template matching", file="./tasks/GlobalGame/ui/ui_ui_reward.png")
+	I_UI_REWARD_NEW = RuleImage(roi_front=(519,212,240,60), roi_back=(464,142,350,160), threshold=0.85, method="Template matching", file="./tasks/GlobalGame/ui/ui_ui_reward_new.png")
 	# 右上角红色关闭按钮 
 	I_UI_BACK_RED = RuleImage(roi_front=(1041,111,34,38), roi_back=(680,15,579,374), threshold=0.8, method="Template matching", file="./tasks/GlobalGame/ui/ui_ui_back_red.png")
 	# description 

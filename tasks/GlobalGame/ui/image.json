@@ -1,5 +1,14 @@
 [
   {
+    "itemName": "ui_reward_new",
+    "imageName": "ui_ui_reward_new.png",
+    "roiFront": "519,212,240,60",
+    "roiBack": "464,142,350,160",
+    "method": "Template matching",
+    "threshold": 0.85,
+    "description": "新版获得奖励标题"
+  },
+  {
     "itemName": "ui_confirm",
     "imageName": "ui_ui_confirm.png",
     "roiFront": "664,408,180,64",

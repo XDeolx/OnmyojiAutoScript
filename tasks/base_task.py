@@ -684,7 +684,10 @@ class BaseTask(GlobalGameAssets, CostumeBase):
         """
         if screenshot:
             self.screenshot()
-        return self.appear_then_click(self.I_UI_REWARD, action=self.C_UI_REWARD, interval=0.4, threshold=0.6)
+        return (
+            self.appear_then_click(self.I_UI_REWARD_NEW, action=self.C_UI_REWARD, interval=0.4)
+            or self.appear_then_click(self.I_UI_REWARD, action=self.C_UI_REWARD, interval=0.4, threshold=0.6)
+        )
 
     def ui_get_reward(self, click_image: RuleImage | RuleOcr | RuleClick, click_interval: float = 1):
         """
@@ -704,7 +707,7 @@ class BaseTask(GlobalGameAssets, CostumeBase):
                 while 1:
                     self.screenshot()
                     # 等待动画结束
-                    if not self.appear(self.I_UI_REWARD, threshold=0.6):
+                    if not (self.appear(self.I_UI_REWARD_NEW) or self.appear(self.I_UI_REWARD, threshold=0.6)):
                         logger.info('Get reward success')
                         break
 
