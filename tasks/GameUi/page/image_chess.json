@@ -20,8 +20,8 @@
   {
     "itemName": "chess_exit_confirm",
     "imageName": "page_chess_exit_confirm.png",
-    "roiFront": "716,409,88,45",
-    "roiBack": "716,409,88,45",
+    "roiFront": "664,408,180,64",
+    "roiBack": "664,408,180,64",
     "method": "Template matching",
     "threshold": 0.8,
     "description": "百鬼棋局确认退出"
@@ -29,8 +29,8 @@
   {
     "itemName": "chess_exit_cancel",
     "imageName": "page_chess_exit_cancel.png",
-    "roiFront": "478,409,88,45",
-    "roiBack": "478,409,88,45",
+    "roiFront": "436,408,180,64",
+    "roiBack": "436,408,180,64",
     "method": "Template matching",
     "threshold": 0.8,
     "description": "百鬼棋局退出确认弹窗"

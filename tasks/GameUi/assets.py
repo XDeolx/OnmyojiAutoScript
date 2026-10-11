@@ -35,9 +35,9 @@ class GameUiAssets:
 	# 百鬼棋局主动退出
 	I_CHESS_EXIT = RuleImage(roi_front=(12,14,48,38), roi_back=(12,14,48,38), threshold=0.8, method="Template matching", file="./tasks/GameUi/page/page_chess_exit.png")
 	# 百鬼棋局确认退出
-	I_CHESS_EXIT_CONFIRM = RuleImage(roi_front=(716,409,88,45), roi_back=(716,409,88,45), threshold=0.8, method="Template matching", file="./tasks/GameUi/page/page_chess_exit_confirm.png")
+	I_CHESS_EXIT_CONFIRM = RuleImage(roi_front=(664,408,180,64), roi_back=(664,408,180,64), threshold=0.8, method="Template matching", file="./tasks/GameUi/page/page_chess_exit_confirm.png")
 	# 百鬼棋局退出确认弹窗
-	I_CHESS_EXIT_CANCEL = RuleImage(roi_front=(478,409,88,45), roi_back=(478,409,88,45), threshold=0.8, method="Template matching", file="./tasks/GameUi/page/page_chess_exit_cancel.png")
+	I_CHESS_EXIT_CANCEL = RuleImage(roi_front=(436,408,180,64), roi_back=(436,408,180,64), threshold=0.8, method="Template matching", file="./tasks/GameUi/page/page_chess_exit_cancel.png")
 	# 百鬼棋局正常结算返回大厅
 	I_CHESS_EXIT_TO_LOBBY = RuleImage(roi_front=(384,591,172,47), roi_back=(340,570,270,100), threshold=0.8, method="Template matching", file="./tasks/GameUi/page/page_chess_exit_to_lobby.png")
 	# 百鬼棋局主动退出后返回大厅
