@@ -317,8 +317,8 @@
   {
     "itemName": "ryou_dokan_quit_battle_ensure",
     "imageName": "res_ryou_dokan_quit_battle_ensure.png",
-    "roiFront": "0,0,1280,720",
-    "roiBack": "0,0,1280,720",
+    "roiFront": "664,408,180,64",
+    "roiBack": "664,408,180,64",
     "method": "Template matching",
     "threshold": 0.8,
     "description": "道馆战斗界面 点击退出按钮后 弹出的确认按钮"

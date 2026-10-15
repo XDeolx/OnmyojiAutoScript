@@ -7,7 +7,8 @@ import random
 from datetime import time, datetime, timedelta
 
 from module.logger import logger
-from module.exception import TaskEnd
+from module.exception import TaskEnd, GameStuckError
+from module.atom.image import RuleImage
 from module.base.timer import Timer
 
 from tasks.Component.GeneralBattle.general_battle import GeneralBattle
@@ -115,11 +116,30 @@ class ScriptTask(GameUi, GeneralBattle, SwitchSoul, DuelAssets, SwitchOnmyoji):
         logger.hr('duel battle matching')
         while not self.is_in_battle_prepare():
             self.screenshot()
+            self.dismiss_event_gift()
             # 战斗按钮
-            self.ui_click_until_disappear(self.I_D_BATTLE, interval=1.2)
-            self.ui_click_until_disappear(self.I_D_BATTLE2, interval=1.2)
+            if self.appear_then_click(self.I_D_BATTLE, interval=1.2):
+                continue
+            if self.appear_then_click(self.I_D_BATTLE2, interval=1.2):
+                continue
             # 战斗带保护的按钮
-            self.ui_click_until_disappear(self.I_D_BATTLE_PROTECT, interval=1.2)
+            self.appear_then_click(self.I_D_BATTLE_PROTECT, interval=1.2)
+
+    I_EVENT_GIFT_TITLE = RuleImage(roi_front=(804,218,176,42), roi_back=(804,218,176,42), threshold=0.85,
+                                 method="Template matching", file="./tasks/Duel/duel/event_gift_title.png")
+    I_EVENT_GIFT_ACCEPT = RuleImage(roi_front=(725,494,216,54), roi_back=(725,494,216,54), threshold=0.85,
+                                  method="Template matching", file="./tasks/Duel/duel/event_gift_accept.png")
+
+    def dismiss_event_gift(self):
+        for attempt in range(4):
+            if not self.appear(self.I_EVENT_GIFT_TITLE):
+                return
+            if attempt == 3 or not self.appear(self.I_EVENT_GIFT_ACCEPT):
+                raise GameStuckError('Duel event gift could not be dismissed')
+            logger.info('Duel: accept event gift before reading score or matching')
+            self.click(self.I_EVENT_GIFT_ACCEPT)
+            sleep(0.8)
+            self.screenshot()
 
     def battle_prepare(self):
         """选式神准备斗技阶段"""
@@ -236,6 +256,7 @@ class ScriptTask(GameUi, GeneralBattle, SwitchSoul, DuelAssets, SwitchOnmyoji):
         """
         self.maybe_screenshot(skip_screenshot)
         score = self.current_score
+        self.dismiss_event_gift()
         self.is_celeb = False
         if self.appear(self.I_D_CELEB_STAR) or self.appear(self.I_D_CELEB_HONOR):
             self.is_celeb = True

@@ -111,7 +111,7 @@ class DokanAssets:
 	# 状态：道馆投票 继续突破 
 	I_RYOU_DOKAN_ABANDONED_TOPPA_CONTINUE = RuleImage(roi_front=(1020,220,260,120), roi_back=(1020,220,260,120), threshold=0.8, method="Template matching", file="./tasks/Dokan/res/res_ryou_dokan_abandoned_toppa_continue.png")
 	# 道馆战斗界面 点击退出按钮后 弹出的确认按钮 
-	I_RYOU_DOKAN_QUIT_BATTLE_ENSURE = RuleImage(roi_front=(0,0,1280,720), roi_back=(0,0,1280,720), threshold=0.8, method="Template matching", file="./tasks/Dokan/res/res_ryou_dokan_quit_battle_ensure.png")
+	I_RYOU_DOKAN_QUIT_BATTLE_ENSURE = RuleImage(roi_front=(664,408,180,64), roi_back=(664,408,180,64), threshold=0.8, method="Template matching", file="./tasks/Dokan/res/res_ryou_dokan_quit_battle_ensure.png")
 	# 道馆退出确认 
 	I_RYOU_DOKAN_EXIT_ENSURE = RuleImage(roi_front=(678,395,125,56), roi_back=(678,395,125,56), threshold=0.8, method="Template matching", file="./tasks/Dokan/res/res_ryou_dokan_exit_ensure.png")
 	# 进入加油相关：道馆战报按钮 
