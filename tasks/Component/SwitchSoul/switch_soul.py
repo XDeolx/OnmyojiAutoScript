@@ -9,6 +9,7 @@ from module.atom.long_click import RuleLongClick
 from module.atom.ocr import RuleOcr
 from tasks.base_task import BaseTask
 from tasks.Component.SwitchSoul.assets import SwitchSoulAssets
+from tasks.Component.SwitchSoul.audio_download import AudioDownloadPrompt
 from module.logger import logger
 
 
@@ -19,7 +20,7 @@ def switch_parser(switch_str: str) -> tuple:
     return int(switch_list[0]), int(switch_list[1])
 
 
-class SwitchSoul(BaseTask, SwitchSoulAssets):
+class SwitchSoul(BaseTask, SwitchSoulAssets, AudioDownloadPrompt):
 
     def run_switch_soul(self, target: tuple | list[tuple] | str):
         """
@@ -42,6 +43,7 @@ class SwitchSoul(BaseTask, SwitchSoulAssets):
         """
         while 1:
             self.screenshot()
+            self.dismiss_audio_download()
             if self.appear(self.I_SOU_SWITCH_1):
                 break
             if self.appear(self.I_SOU_SWITCH_2):
