@@ -32,9 +32,10 @@ from tasks.GameUi.registry import PageRegistry
 from tasks.GameUi.session import NavigatorSession
 from tasks.SixRealms.assets import SixRealmsAssets
 from tasks.base_task import BaseTask
+from tasks.Component.SwitchSoul.audio_download import AudioDownloadPrompt
 
 
-class GameUi(ChessBattleNavigationMixin, BaseTask, GameUiAssets):
+class GameUi(ChessBattleNavigationMixin, BaseTask, GameUiAssets, AudioDownloadPrompt):
     """页面识别、导航与未知页恢复的统一入口。"""
 
     REPEATED_TRANSITION_FAILURE_THRESHOLD = 3
@@ -283,6 +284,7 @@ class GameUi(ChessBattleNavigationMixin, BaseTask, GameUiAssets):
         deadline = time.monotonic() + 15
         while time.monotonic() < deadline:
             self.screenshot()
+            self.dismiss_audio_download()
             if self.confirm_page(page_shikigami_records):
                 break
             self.appear_then_click(self.I_MAIN_GOTO_SHIKIGAMI_RECORDS, interval=2)
@@ -293,6 +295,7 @@ class GameUi(ChessBattleNavigationMixin, BaseTask, GameUiAssets):
         deadline = time.monotonic() + 15
         while time.monotonic() < deadline:
             self.screenshot()
+            self.dismiss_audio_download()
             if self.confirm_page(page_main):
                 self.navigator.current_page = self.navigator.resolve_page(page_main)
                 logger.info("Courtyard layout restored; resume original navigation")
@@ -757,6 +760,9 @@ class GameUi(ChessBattleNavigationMixin, BaseTask, GameUiAssets):
 
         self.maybe_screenshot(skip_first_screenshot)
         logger.warning("Try switch to a supported page")
+        if self.dismiss_audio_download():
+            self._record_unknown_close_event("audio_download")
+            return True
         if self.navigator.unknown_close_history[-3:] != ["courtyard_interaction"] * 3:
             if self._close_courtyard_interaction():
                 self._record_unknown_close_event("courtyard_interaction")

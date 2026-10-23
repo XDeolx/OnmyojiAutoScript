@@ -16,7 +16,7 @@ class AudioDownloadPrompt:
     def dismiss_audio_download(self):
         for attempt in range(4):
             if not self.appear(self.I_AUDIO_DOWNLOAD_TITLE):
-                return
+                return attempt > 0
             if attempt == 3 or not self.appear(self.I_AUDIO_DOWNLOAD_CANCEL):
                 raise GameStuckError('Shikigami audio download prompt could not be dismissed')
             logger.info('Shikigami records: cancel optional audio download')

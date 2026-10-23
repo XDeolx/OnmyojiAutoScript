@@ -57,7 +57,7 @@ class ChessConfig(ConfigBase):
     coin_full_exit: bool = Field(
         title='刷满鼬乐币',
         default=False,
-        description='勾选后检测到鼬乐币已满时立即结束百鬼棋局',
+        description='勾选后本周鼬乐币刷满即结束；活动期间需同时刷满额外额度，上限按界面读取。执行次数和运行时间限制仍有效',
     )
     continue_grigri_refresh_below_nine: bool = Field(
         title='刷新非前40%符咒',

@@ -117,7 +117,7 @@ class ItachiCoinShop(Buy, GameUi, RichManAssets):
         while time.monotonic() < deadline:
             self.screenshot()
             # 与上游一致，以奖励领取完成作为成功依据；扣币 OCR 仅用于诊断。
-            if self.appear(self.I_UI_REWARD, threshold=0.6):
+            if self._purchase_reward_visible():
                 if self._dismiss_purchase_reward():
                     self._verify_coin_cost(before_coin, cost)
                     return self.GIFT_PURCHASED
@@ -154,11 +154,14 @@ class ItachiCoinShop(Buy, GameUi, RichManAssets):
         logger.warning('鼬乐礼盒购买结果等待超时')
         return self.GIFT_STOP
 
+    def _purchase_reward_visible(self) -> bool:
+        return self.appear(self.I_UI_REWARD_NEW) or self.appear(self.I_UI_REWARD, threshold=0.6)
+
     def _dismiss_purchase_reward(self) -> bool:
         deadline = time.monotonic() + self.REWARD_DISMISS_TIMEOUT
         while time.monotonic() < deadline:
             self.screenshot()
-            if not self.appear(self.I_UI_REWARD, threshold=0.6):
+            if not self._purchase_reward_visible():
                 return True
             self.ui_reward_appear_click()
         logger.warning('鼬乐礼盒奖励页未能关闭')

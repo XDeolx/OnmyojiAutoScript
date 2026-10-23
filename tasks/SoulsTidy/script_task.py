@@ -6,7 +6,6 @@ from datetime import timedelta, datetime, time
 from cached_property import cached_property
 
 from module.exception import TaskEnd
-from tasks.Component.SwitchSoul.audio_download import AudioDownloadPrompt
 from module.logger import logger
 from module.base.timer import Timer
 
@@ -17,7 +16,7 @@ from tasks.SoulsTidy.config import SimpleTidy
 from typing import Optional
 
 
-class ScriptTask(GameUi, SoulsTidyAssets, AudioDownloadPrompt):
+class ScriptTask(GameUi, SoulsTidyAssets):
 
     def run(self):
         self.goto_page(page_shikigami_records)

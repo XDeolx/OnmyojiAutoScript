@@ -12,6 +12,7 @@ from module.atom.click import RuleClick
 from module.atom.image import RuleImage
 from module.atom.ocr import RuleOcr
 from module.logger import logger
+from module.exception import GameStuckError
 from tasks.Chess.strategy.shikigami_catalog import (
     KNOWN_BONDS,
     NON_SHOP_SHIKIGAMI,
@@ -25,6 +26,45 @@ from tasks.Chess.strategy.shikigami_catalog import (
 
 class ChessEconomyMixin:
     """Internal mixin; use through ``ScriptTask`` only."""
+
+    O_COIN_LABEL_LEFT = RuleOcr(roi=(110,628,148,31), area=(110,628,148,31),
+                               mode="Single", method="Default", keyword="", name="coin_label_left")
+    O_COIN_LABEL_RIGHT = RuleOcr(roi=(367,628,150,31), area=(367,628,150,31),
+                                mode="Single", method="Default", keyword="", name="coin_label_right")
+    O_COIN_EVENT = RuleOcr(roi=(150,659,106,27), area=(150,659,106,27),
+                          mode="DigitCounter", method="Default", keyword="", name="coin_event")
+    O_COIN_WEEK_RIGHT = RuleOcr(roi=(394,659,115,27), area=(394,659,115,27),
+                               mode="DigitCounter", method="Default", keyword="", name="coin_week_right")
+
+    @staticmethod
+    def _valid_coin_counter(value, expected_total=None):
+        if not isinstance(value, (tuple, list)) or len(value) != 3:
+            return None
+        current, remaining, total = value
+        if not all(type(v) is int for v in value):
+            return None
+        if total <= 0 or current < 0 or remaining < 0 or current + remaining != total:
+            return None
+        if expected_total is not None and total != expected_total:
+            return None
+        return current, total
+
+    def _read_coin_quotas(self):
+        left = str(self.O_COIN_LABEL_LEFT.ocr(self.device.image) or '')
+        if '额外' in left:
+            right = str(self.O_COIN_LABEL_RIGHT.ocr(self.device.image) or '')
+            if '本周' not in right:
+                return None
+            weekly = self._valid_coin_counter(self.O_COIN_WEEK_RIGHT.ocr(self.device.image), 600)
+            event = self._valid_coin_counter(self.O_COIN_EVENT.ocr(self.device.image))
+            if weekly is None or event is None:
+                return None
+            return {'weekly': weekly, 'event': event}
+        if '本周' in left:
+            coin = self._read_coin()
+            if coin is not None:
+                return {'weekly': (coin['current'], coin['total'])}
+        return None
 
     def _shop_slots(self) -> list[tuple[int, RuleClick]]:
         """返回商店五个卡面点击区；编号按原资源定义从右向左。"""
@@ -171,18 +211,17 @@ class ChessEconomyMixin:
         return coin
 
     def _coin_is_full(self) -> bool:
-        """最多复查三帧，仅 600/600 才视为鼬乐币已满。"""
+        """活动期间周额度和额外额度均满才退出；未知布局不冒充无活动。"""
         for attempt in range(1, 4):
-            coin = self._read_coin()
-            if coin is not None:
-                full = coin['current'] == coin['total'] == 600
-                if full:
-                    logger.info('Chess coin is full: 600/600')
-                return full
+            quotas = self._read_coin_quotas()
+            if quotas is not None:
+                logger.info('Chess coin quotas: ' + ', '.join(
+                    f'{name}={current}/{total}' for name, (current, total) in quotas.items()))
+                return all(current == total for current, total in quotas.values())
             if attempt < 3:
                 time.sleep(self.SCREENSHOT_INTERVAL)
                 self.screenshot()
-        return False
+        raise GameStuckError('Chess coin quota labels or counters could not be verified')
 
     def _can_afford_shop_shikigami(
         self,

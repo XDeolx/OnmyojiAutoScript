@@ -116,7 +116,7 @@ class ScriptTask(
             self.screenshot()
             if coin_full_exit and self._coin_is_full():
                 logger.info(
-                    'Stop Chess task before next game: coin reached 600/600'
+                    'Stop Chess task before next game: all available coin quotas full'
                 )
                 break
 
@@ -172,7 +172,7 @@ class ScriptTask(
                 self.screenshot()
                 if self._coin_is_full():
                     logger.info(
-                        'Stop Chess task after game: coin reached 600/600'
+                        'Stop Chess task after game: all available coin quotas full'
                     )
                     break
 
