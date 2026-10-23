@@ -1,6 +1,6 @@
 # This Python file uses the following encoding: utf-8
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from tasks.Component.config_base import ConfigBase, Time
 from tasks.Component.config_scheduler import Scheduler
@@ -10,63 +10,51 @@ from tasks.Chess.strategy.lineup import LineupBond
 class ChessConfig(ConfigBase):
     """百鬼棋局循环与结束条件。"""
 
+    hyakki_draft_enabled: bool = Field(
+        title='百鬼优先所需御魂', default=True,
+    )
+
     lineup_bond: LineupBond = Field(
         title='选择阵容羁绊',
-        default=LineupBond.ARAKAWA,
-        description='选择百鬼棋局使用的阵容羁绊与对应运营策略',
+        default=LineupBond.QIJIAOSHAN,
     )
+
+    @field_validator('lineup_bond', mode='before')
+    @classmethod
+    def migrate_removed_lineup(cls, value):
+        raw = getattr(value, 'value', value)
+        if raw in {'流火', '冥府', '大江山', '狐妖', '荒川',
+                   'liuhuo', 'mingfu', 'dajiangshan', 'huyao', 'arakawa'}:
+            return LineupBond.QIJIAOSHAN
+        return value
 
     rank_protection: bool = Field(
         title='保段位',
         default=False,
-        description='开启后每完成前四名一局主动退出三局；退出局不计入执行次数',
-    )
-    early_exit: bool = Field(
-        title='按剩余人数提前退出',
-        default=False,
-        description='开启后在回目开始时检测存活人数，达到设定阈值后主动退出',
-    )
-    remaining_players: int = Field(
-        title='提前退出人数阈值',
-        default=0,
-        ge=0,
-        le=8,
-        description='存活人数小于或等于该数值时主动退出；0表示不启用',
     )
 
     run_count: int = Field(
         title='执行次数',
         default=1,
         ge=-1,
-        description='完成目标局数后结束；设置为-1时一直执行',
     )
     matchmaking_timeout_seconds: int = Field(
         title='匹配限制时间（秒）',
         default=60,
         ge=10,
-        description=(
-            '单次匹配超过限制后取消并重新匹配；连续三次超时'
-            '则标记为等待过多并结束任务'
-        ),
     )
     limit_time: Time = Field(
         title='运行时间限制',
         default=Time(minute=30),
-        description='达到限制时间后不再开始下一局，已经开始的对局会正常完成',
     )
     coin_full_exit: bool = Field(
         title='刷满鼬乐币',
         default=False,
-        description='勾选后本周鼬乐币刷满即结束；活动期间需同时刷满额外额度，上限按界面读取。执行次数和运行时间限制仍有效',
+        description='无活动时刷满每周额度；有活动时同时刷满本周和额外额度，仍受执行次数与运行时间限制。',
     )
     continue_grigri_refresh_below_nine: bool = Field(
         title='刷新非前40%符咒',
         default=True,
-        description=(
-            '按当前品质符咒总数的实际收益排名，保留排名前40%的'
-            '选项，只刷新其余仍有刷新次数的位置；同收益边界按'
-            '固定图鉴顺序确定名次'
-        ),
     )
 
 

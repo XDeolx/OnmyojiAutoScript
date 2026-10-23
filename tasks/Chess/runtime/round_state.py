@@ -9,6 +9,7 @@ from functools import cached_property
 from pathlib import Path
 
 import cv2
+import numpy as np
 from module.logger import logger
 from tasks.Chess.strategy.grigri import (
     grigri_category,
@@ -27,13 +28,22 @@ class ChessRoundStateMixin:
     @cached_property
     def grigri_icon_templates(self) -> dict[str, object]:
         """按中文名缓存全部符咒图标，供 OCR 失败时进行图像兜底。"""
-        badge_dir = Path(__file__).resolve().parents[1] / 'badge'
+        badge_dir = Path(__file__).resolve().parents[1] / 'resource' / 'badge'
         templates = {}
         for name in grigri_names_for_quality(None):
             file = badge_dir / grigri_file(name)
-            image = cv2.imread(str(file), cv2.IMREAD_COLOR)
-            if image is None:
+            if not file.is_file():
                 logger.warning(f'Chess grigri icon is missing: {file}')
+                continue
+            try:
+                # OpenCV imread cannot reliably open Unicode paths on Windows.
+                data = np.fromfile(str(file), dtype=np.uint8)
+                image = cv2.imdecode(data, cv2.IMREAD_COLOR) if data.size else None
+            except (OSError, cv2.error) as error:
+                logger.warning(f'Chess grigri icon could not be read: {file}: {error}')
+                continue
+            if image is None:
+                logger.warning(f'Chess grigri icon could not be decoded: {file}')
                 continue
             templates[name] = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         logger.debug(f'Loaded {len(templates)} Chess grigri icon templates')
@@ -256,6 +266,25 @@ class ChessRoundStateMixin:
             if item['score'] == lowest_score
         ])
 
+    def _recognize_grigri_options_with_retry(self) -> list[dict]:
+        """三个选项全未知时，用下一张截图复核一次。"""
+        options = self._recognize_grigri_options()
+        if len(options) == 3 and all(not item['name'] for item in options):
+            logger.info(
+                'All Chess grigri options unknown; wait for next screenshot '
+                'and recognize once more'
+            )
+            time.sleep(self.ACTION_SETTLE_INTERVAL)
+            self.screenshot()
+            self._grigri_quality_cache = None
+            options = self._recognize_grigri_options()
+            if len(options) == 3 and all(not item['name'] for item in options):
+                logger.warning(
+                    'All Chess grigri options still unknown after recheck; '
+                    'allow random selection'
+                )
+        return options
+
     def select_grigri(self) -> bool:
         """识别、评分并选择符咒；低分时对目标选项刷新一次。"""
         if not self.appear(self.I_SELECT_GRIGRI):
@@ -264,7 +293,7 @@ class ChessRoundStateMixin:
         # 每次进入新的选符咒界面，三个位置各允许刷新一次。
         self._grigri_quality_cache = None
         self._grigri_refresh_remaining = [1, 1, 1]
-        options = self._recognize_grigri_options()
+        options = self._recognize_grigri_options_with_retry()
         for _ in range(self.GRIGRI_REFRESH_MAXIMUM):
             refresh_target = self._next_refreshable_grigri_option(
                 options
@@ -278,7 +307,7 @@ class ChessRoundStateMixin:
                 break
             if not self._refresh_grigri_option(refresh_target):
                 break
-            options = self._recognize_grigri_options()
+            options = self._recognize_grigri_options_with_retry()
 
         selected = self._best_grigri_option(options)
         selected_rule = selected['rule']
@@ -402,8 +431,39 @@ class ChessRoundStateMixin:
             )
         return value
 
+    # 特殊回合标志优先于文字 OCR；后续回合标志在此登记阶段。
+    SPECIAL_STAGE_RULES = (('I_STAGE_HYAKKI', '鬼'),)
+    BOARD_MARKER_DISABLED_RULES = ('I_STAGE_ORCHI', 'I_STAGE_DEMON')
+
+    def _stage_marker_visible(self, rule) -> bool:
+        """回合预告中的灰色图案也会模板命中，只接受金色激活图案。"""
+        x, y, w, h = rule.roi_back
+        region = self.device.image[y:y+h, x:x+w]
+        template = rule.image
+        th, tw = template.shape[:2]
+        if region.shape[0] < th or region.shape[1] < tw:
+            return False
+        scores = cv2.matchTemplate(region, template, cv2.TM_CCOEFF_NORMED)
+        ys, xs = np.where(scores >= rule.threshold)
+        for px, py in zip(xs, ys):
+            hsv = cv2.cvtColor(region[py:py+th, px:px+tw], cv2.COLOR_RGB2HSV)
+            gold = ((hsv[:, :, 0] >= 10) & (hsv[:, :, 0] <= 45)
+                    & (hsv[:, :, 1] >= 100) & (hsv[:, :, 2] >= 150))
+            if float(np.mean(gold)) >= .10:
+                return True
+        return False
+
+    def _special_chess_mode(self) -> str | None:
+        for rule_name, mode in self.SPECIAL_STAGE_RULES:
+            if self._stage_marker_visible(getattr(self, rule_name)):
+                return mode
+        return None
+
     def _read_chess_mode(self) -> str | None:
-        """返回模式文字；只有 OCR 真正无文本时才返回 None。"""
+        """优先识别特殊回合标志，其余阶段读取文字。"""
+        special_mode = self._special_chess_mode()
+        if special_mode is not None:
+            return special_mode
         primary_raw, use_alternate_layout = self._read_primary_round_layout()
         raw = (
             self._normalize_ocr_text(
@@ -412,18 +472,21 @@ class ChessRoundStateMixin:
             if use_alternate_layout
             else primary_raw
         )
-        for mode in ('备', '战', '鬼'):
-            if mode in raw:
-                return mode
+        if raw in ('备', '战'):
+            return raw
         # “待”等过渡文字虽然不触发阶段动作，但必须保留为有文本状态，
         # 不能和真正的 OCR 空结果混为一谈，否则会误累计结算空帧。
-        return raw or None
+        return '待' if raw else None
 
-    def _is_boss_challenge_round(self) -> bool:
-        """当前是否为固定勾玉框会整体失效的首领挑战回合。"""
-        return getattr(self, '_current_round_no', None) in (
-            self.BOSS_CHALLENGE_ROUNDS
-        )
+    def _is_boss_challenge_round(self, round_no=None) -> bool:
+        """大蛇、逢魔标志出现过的本回合不使用勾玉上阵检测。"""
+        key = (self.chess_state.game_number,
+               self._current_round_no if round_no is None else round_no)
+        if any(self._stage_marker_visible(getattr(self, name))
+               for name in self.BOARD_MARKER_DISABLED_RULES):
+            self._board_marker_disabled_round = key
+            return True
+        return getattr(self, '_board_marker_disabled_round', None) == key
 
     def _tracked_board_positions(self) -> set[int]:
         """汇总无需依赖勾玉模板即可确认的本局站位。"""
@@ -460,6 +523,14 @@ class ChessRoundStateMixin:
             )
             return occupied
 
+        return self._board_set_has_shikigami_visual(set_index)
+
+    def _board_set_has_shikigami_visual(self, set_index: int) -> bool:
+        """仅按当前截图中的勾玉标志判断指定站位是否有人。"""
+
+        if self._is_boss_challenge_round():
+            return int(set_index) in self._tracked_board_positions()
+
         x, y, width, height = self._set_jade_area(set_index)
         image_height, image_width = self.device.image.shape[:2]
         if (
@@ -493,6 +564,54 @@ class ChessRoundStateMixin:
             ))
             for rule in self.board_occupancy_rules
         )
+
+    def _reconcile_lineup_after_hyakki_round(
+        self,
+        next_round_no: int | None = None,
+    ) -> list[str]:
+        """百鬼夜行结束后移除已不在原站位上的式神上阵记录。"""
+        if self._is_boss_challenge_round(round_no=next_round_no):
+            logger.info(
+                'Skip post-Hyakki lineup check during boss round: '
+                f'round={next_round_no}'
+            )
+            return []
+        deployed_names = set(
+            getattr(self, '_board_lineup_names', set())
+        )
+        actual_positions = dict(
+            getattr(self, '_board_actual_positions', {})
+        )
+        player_positions = set(
+            getattr(self, '_player_deployed_positions', set())
+        )
+        removed = []
+        for name in sorted(deployed_names):
+            set_index = actual_positions.get(
+                name,
+                self.shikigami_deploy_positions.get(name),
+            )
+            if set_index is None:
+                continue
+            if self._board_set_has_shikigami_visual(int(set_index)):
+                continue
+            deployed_names.discard(name)
+            actual_positions.pop(name, None)
+            player_positions.discard(int(set_index))
+            removed.append(name)
+            logger.warning(
+                'Chess shikigami missing after Hyakki round; '
+                f'mark as undeployed: name={name}, set={set_index}'
+            )
+
+        self._board_lineup_names = deployed_names
+        self._board_actual_positions = actual_positions
+        self._player_deployed_positions = player_positions
+        logger.info(
+            'Chess post-Hyakki lineup check: '
+            f'removed={removed}, deployed={sorted(deployed_names)}'
+        )
+        return removed
 
     def _read_board_position_count(self) -> dict:
         """统计 12 个站位勾玉区域中检测到图标的位置数量。"""
@@ -629,25 +748,6 @@ class ChessRoundStateMixin:
         )
         return remaining
 
-    def _read_alive_players(self) -> int | None:
-        """以右侧血量列表中仍有数字的最大编号估算存活人数。"""
-        detected = {}
-        for index in range(1, 9):
-            rule = getattr(self, f'O_HEALTH_{index}')
-            raw = self._normalize_ocr_text(rule.ocr(self.device.image))
-            if re.search(r'\d', raw):
-                detected[index] = raw
-
-        if not detected:
-            logger.warning('Chess alive-player OCR found no health value')
-            return None
-        alive = max(detected)
-        logger.debug(
-            'Chess alive players by health OCR: '
-            f'alive={alive}, detected={detected}'
-        )
-        return alive
-
     def _read_game_rank(self) -> tuple[int | None, str]:
         """读取结算页“第几名”，兼容阿拉伯数字和中文数字。"""
         raw = self._normalize_ocr_text(self.O_RANK.ocr(self.device.image))
@@ -669,62 +769,3 @@ class ChessRoundStateMixin:
             if character in raw:
                 return rank, raw
         return None, raw
-
-    def _try_last_seconds_deploy(self) -> bool:
-        """第一套布局备阶段倒计时不超过 10 秒时，空闲补做一次上阵。
-
-        Returns:
-            bool: 是否已经进入倒计时补位判定。OCR 未到阈值或不可用时
-                返回 False，允许后续截图继续检查；一旦到达阈值，无论
-                阵容是否已满都返回 True，确保每回目至多触发一次。
-        """
-        if self._is_early_round_layout():
-            return False
-        remaining = self._read_remaining_time()
-        if remaining is None or remaining > 10:
-            return False
-
-        logger.debug(
-            'Chess last-seconds lineup check: '
-            f'remaining={remaining}'
-        )
-        if self._read_chess_mode() != '备':
-            logger.debug('Skip last-seconds deploy: mode is no longer 备')
-            return True
-        if not self._ensure_shop_closed():
-            logger.warning(
-                'Skip last-seconds deploy: shop could not be closed'
-            )
-            return True
-
-        self.screenshot()
-        if self._is_early_round_layout() or not self._is_preparation_mode():
-            logger.debug(
-                'Skip last-seconds deploy: preparation/layout changed '
-                'while closing shop'
-            )
-            return True
-
-        capacity = self._read_lineup_capacity_status()
-        if capacity is None:
-            logger.warning(
-                'Skip last-seconds deploy: lineup capacity is unavailable'
-            )
-            return True
-        if capacity['full']:
-            logger.debug(
-                'Skip last-seconds deploy: lineup is already full '
-                f'({capacity["current"]}/{capacity["capacity"]})'
-            )
-            return True
-
-        logger.debug(
-            'Run last-seconds deploy: '
-            f'{capacity["current"]}/{capacity["capacity"]}'
-        )
-        deployed = self.deploy_shikigami_from_hand()
-        logger.debug(
-            'Chess last-seconds deploy complete: '
-            f'deployed={deployed}'
-        )
-        return True
