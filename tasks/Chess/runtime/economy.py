@@ -932,10 +932,9 @@ class ChessEconomyMixin:
             if '本周' not in right:
                 return None
             weekly = self._valid_coin_counter(self.O_COIN_WEEK_RIGHT.ocr(self.device.image), 600)
-            event = self._valid_coin_counter(self.O_COIN_EVENT.ocr(self.device.image))
-            if weekly is None or event is None:
+            if weekly is None:
                 return None
-            return {'weekly': weekly, 'event': event}
+            return {'weekly': weekly}
         if '本周' in left:
             coin = self._read_coin()
             if coin is not None:
@@ -1023,13 +1022,13 @@ class ChessEconomyMixin:
 
 
     def _coin_is_full(self) -> bool:
-        """活动期间周额度和额外额度均满才退出；未知布局不冒充无活动。"""
+        """仅按本周额度退出，兼容活动期间本周进度移到右侧的布局。"""
         for attempt in range(1, 4):
             quotas = self._read_coin_quotas()
             if quotas is not None:
-                logger.info('Chess coin quotas: ' + ', '.join(
-                    f'{name}={current}/{total}' for name, (current, total) in quotas.items()))
-                return all(current == total for current, total in quotas.values())
+                current, total = quotas['weekly']
+                logger.info(f'Chess weekly coin: {current}/{total}')
+                return current == total
             if attempt < 3:
                 time.sleep(self.SCREENSHOT_INTERVAL)
                 self.screenshot()

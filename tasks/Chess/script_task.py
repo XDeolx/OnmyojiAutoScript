@@ -135,7 +135,7 @@ class ChessLegacyScriptTask(
                 if coin_full_exit and self._coin_is_full():
                     logger.info(
                         'Stop Chess task before next game: '
-                        'all coin quotas reached'
+                        'weekly coin quota reached'
                     )
                     break
 
@@ -224,7 +224,7 @@ class ChessLegacyScriptTask(
                 self.screenshot()
                 if self._coin_is_full():
                     logger.info(
-                        'Stop Chess task after game: all coin quotas reached'
+                        'Stop Chess task after game: weekly coin quota reached'
                     )
                     break
 

@@ -50,7 +50,7 @@ class ChessConfig(ConfigBase):
     coin_full_exit: bool = Field(
         title='刷满鼬乐币',
         default=False,
-        description='无活动时刷满每周额度；有活动时同时刷满本周和额外额度，仍受执行次数与运行时间限制。',
+        description='本周鼬乐币达到600即结束，兼容有活动和无活动的进度位置；不要求刷满额外额度，仍受执行次数与运行时间限制。',
     )
     continue_grigri_refresh_below_nine: bool = Field(
         title='刷新非前40%符咒',
