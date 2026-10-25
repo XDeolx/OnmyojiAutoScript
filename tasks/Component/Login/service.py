@@ -2,15 +2,53 @@
 # @author runhey
 # github https://github.com/runhey
 from module.base.timer import Timer
-from module.exception import RequestHumanTakeover, GameTooManyClickError, GameStuckError
+from module.exception import RequestHumanTakeover, GameTooManyClickError, GameStuckError, GamePageUnknownError
 from module.logger import logger
 from tasks.GameUi.assets import GameUiAssets
 from tasks.Restart.assets import RestartAssets
 from tasks.base_task import BaseTask
+from time import monotonic
+from time import sleep
+from module.atom.image import RuleImage
+from module.atom.click import RuleClick
+from tasks.GameUi.chess_battle import ChessBattleNavigationMixin
 
 
-class LoginService(BaseTask, RestartAssets, GameUiAssets):
+class LoginService(ChessBattleNavigationMixin, BaseTask, RestartAssets, GameUiAssets):
     character: str
+
+    I_RETURN_CHESS_PROMPT = RuleImage(
+        roi_front=(510,302,265,30), roi_back=(460,270,360,95),
+        threshold=0.85, method='Template matching',
+        file='./tasks/Restart/login/login_return_chess_prompt.png')
+    C_RETURN_CHESS_CANCEL = RuleClick(
+        roi_front=(450,420,150,40), roi_back=(450,420,150,40),
+        name='return_chess_cancel')
+
+    def _recover_interrupted_chess(self) -> bool:
+        prompt = self.appear(self.I_RETURN_CHESS_PROMPT)
+        if not prompt and not self.chess_result_flow_visible():
+            return False
+        logger.info('Login: cancel interrupted chess and finish result flow')
+        try:
+            attempts = 0
+            while prompt:
+                if attempts >= 3:
+                    raise RequestHumanTakeover('棋局重返提示取消失败，请检查画面')
+                self.click(self.C_RETURN_CHESS_CANCEL)
+                attempts += 1
+                sleep(1.5)
+                self.screenshot()
+                prompt = self.appear(self.I_RETURN_CHESS_PROMPT)
+            self.return_to_chess_lobby(strict=True)
+            from tasks.GameUi.navigator import GameUi
+            from tasks.GameUi.page import page_main
+            ui = GameUi(config=self.config, device=self.device)
+            if not ui.goto_page(page_main, skip_first_screenshot=False):
+                raise RequestHumanTakeover('棋局恢复后未确认返回庭院，请检查画面')
+        except (GameTooManyClickError, GameStuckError, GamePageUnknownError) as exc:
+            raise RequestHumanTakeover('棋局登录恢复未完成，已停止重复重启') from exc
+        return True
 
     def __init__(self, *wargs, **kwargs):
         super().__init__(*wargs, **kwargs)
@@ -39,6 +77,8 @@ class LoginService(BaseTask, RestartAssets, GameUiAssets):
         skip_click_mx_cnt = 5
         login_success = False
         enter_game_fallback_used = False
+        scroll_close_attempts = 0
+        missing_records_since = None
 
         while 1:
             if not login_success and orientation_timer.reached():
@@ -46,18 +86,29 @@ class LoginService(BaseTask, RestartAssets, GameUiAssets):
                 orientation_timer.reset()
 
             self.screenshot()
+            if self._recover_interrupted_chess():
+                skip_login_animation = False
+                confirm_timer.reset()
+                scroll_close_attempts = 0
+                missing_records_since = None
+                continue
             if self.appear_then_click(self.I_CANCEL_BATTLE, interval=0.8):
                 logger.info('Cancel continue battle')
-                continue
-            if self.appear_then_click(self.I_RETURN_CHESS_CANCEL, interval=0.8):
-                logger.info('Cancel return to chess battle')
                 continue
             if self.appear(self.I_CHECK_MAIN, interval=0.2) and not self.appear(self.I_MAIN_GOTO_SHIKIGAMI_RECORDS):
                 logger.info('The main had already appeared, but shikigami records had not yet appeared')
                 skip_login_animation = False
-                if self.click(self.C_LOGIN_SCROLL_CLOSE_AREA, interval=2):
+                if missing_records_since is None:
+                    missing_records_since = monotonic()
+                if scroll_close_attempts >= 3 and monotonic() - missing_records_since >= 15:
+                    logger.error('Login recovery stopped: courtyard detected but shikigami records remain missing after 3 attempts; check the current screen')
+                    raise RequestHumanTakeover('庭院式神录未识别，已停止重复收起操作，请检查当前画面')
+                if scroll_close_attempts < 3 and self.click(self.C_LOGIN_SCROLL_CLOSE_AREA, interval=2):
+                    scroll_close_attempts += 1
                     continue
             if self.appear(self.I_MAIN_GOTO_SHIKIGAMI_RECORDS, interval=0.2):
+                scroll_close_attempts = 0
+                missing_records_since = None
                 if confirm_timer.reached():
                     logger.info('Login to main confirm (shikigami records button appears)')
                     break

@@ -43,7 +43,7 @@ class ChessLegacyScriptTask(
         """棋局任务的所有截图均检查红叉，关闭遮挡操作的浮窗。"""
         if super()._burst():
             return True
-        if self.appear_then_click(self.I_CLOSE_RED, interval=0.8):
+        if self.appear_then_click(self.I_CHESS_POPUP_CLOSE_RED, interval=0.8):
             logger.info('Chess: close floating window with red cross')
             return True
         return False

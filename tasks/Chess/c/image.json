@@ -1,5 +1,15 @@
 [
   {
+    "itemName": "chess_popup_close_red",
+    "imageName": "c_popup_close_red.png",
+    "roiFront": "1169,60,33,25",
+    "roiBack": "1077,19,151,144",
+    "method": "Template matching",
+    "threshold": 0.8,
+    "profile": "High",
+    "description": "棋局右上角弹窗关闭，不使用加成开关资源"
+  },
+  {
     "itemName": "select_grigri",
     "imageName": "c_select_grigri.png",
     "roiFront": "533,74,218,43",

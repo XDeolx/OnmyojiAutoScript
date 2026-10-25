@@ -32,8 +32,42 @@ class ChessBattleNavigationMixin:
             or self.chess_result_page_visible()
         )
 
-    def return_to_chess_lobby(self) -> bool:
+    def _return_to_chess_lobby_strict(self) -> bool:
+        deadline = time.monotonic() + self.CHESS_EXIT_TIMEOUT
+        next_click = 0.0
+        clicks = 0
+        while time.monotonic() < deadline:
+            self.screenshot()
+            if self.appear(self.I_CHECK_CHESS):
+                return True
+            if time.monotonic() >= next_click:
+                target = None
+                for rule in (self.I_CHESS_RANK_GOTO_LOBBY,
+                             self.I_CHESS_EXIT_TO_LOBBY,
+                             self.I_CHESS_EXIT_TO_LOBBY_2):
+                    if self.appear(rule):
+                        target = rule
+                        break
+                if target is None and (
+                    self.appear(self.I_CHESS_SHARE)
+                    or self.appear(self.I_CHECK_CHESS_RANK)
+                    or self.appear(self.I_UI_REWARD)
+                    or self.appear(self.I_UI_REWARD_NEW)
+                ):
+                    target = GeneralBattleAssets.C_RANDOM_LEFT
+                if target is not None:
+                    if clicks >= 12:
+                        raise GameStuckError('Chess login recovery click limit reached')
+                    self.click(target)
+                    clicks += 1
+                    next_click = time.monotonic() + 1.5
+            time.sleep(self.CHESS_EXIT_SCREENSHOT_INTERVAL)
+        raise GameStuckError('Chess login recovery: unknown or unchanged result page')
+
+    def return_to_chess_lobby(self, strict: bool = False) -> bool:
         """完成返回按钮、分享页与排名页流程，最终回到棋局大厅。"""
+        if strict:
+            return self._return_to_chess_lobby_strict()
         logger.debug('Global Chess result flow: return to lobby')
         deadline = time.monotonic() + self.CHESS_EXIT_TIMEOUT
         share_seen = False
