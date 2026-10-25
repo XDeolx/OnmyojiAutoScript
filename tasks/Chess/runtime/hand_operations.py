@@ -1508,7 +1508,16 @@ class ChessHandOperationsMixin:
                     continue
                 scores = cv2.matchTemplate(region, front, cv2.TM_CCOEFF_NORMED)
                 ys, xs = np.where(scores >= frame.threshold)
-                candidates.extend((float(scores[py, px]), x+int(px)+offset) for py, px in zip(ys, xs))
+                _, reference_y, _, _ = frame.badge_references[0]
+                _, card_y, _, card_h = frame.roi_ranges[-1 if kind == 'card' else 1]
+                hand_top = self.HAND_AREA[1]
+                hand_bottom = hand_top + self.HAND_AREA[3]
+                candidates.extend(
+                    (float(scores[py, px]), x+int(px)+offset)
+                    for py, px in zip(ys, xs)
+                    if hand_top - 3 <= top + int(py) + card_y - reference_y
+                    and top + int(py) + card_y - reference_y + card_h <= hand_bottom + 3
+                )
         candidates.extend((item['score'], item['position'][0]) for item in self._soul_hand_cards())
         # 守护之印不占容量；不依赖当前阵容是否配置守护之印。
         x, y, w, h = self.HAND_AREA
@@ -1840,6 +1849,13 @@ class ChessHandOperationsMixin:
                 result = self.sell_one_lineup_hand_card()
                 if result is None:
                     return None
+
+        # Verify actual capacity, not just a successful equip/sell action.
+        for _ in range(2):
+            self.screenshot()
+            if self._hand_capacity_count() >= 10:
+                logger.warning('Chess hand cleanup did not confirm free capacity; stop purchase')
+                return None
 
         # 本方法只会在购买失败的恢复路径调用；清理后必须恢复“商店开”
         # 这一购买前置状态，至于卖卡过程本身不主动切换商店。

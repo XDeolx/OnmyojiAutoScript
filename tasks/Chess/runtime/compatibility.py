@@ -21,7 +21,7 @@ class ChessRuntimeCompatibilityMixin:
 
 
     def ui_click_until_disappear(self, click, interval: float = 1, *,
-                                 click_target=None, visible=None, guard=None,
+                                 click_target=None, visible=None, guard=None, before_click=None,
                                  timeout: float | None = None, confirm_frames: int = 1,
                                  max_clicks: int | None = None):
         """点击直到目标消失；可独立指定点击区、可见性判定和有界多帧确认。
@@ -45,6 +45,8 @@ class ChessRuntimeCompatibilityMixin:
                 continue
             missing = 0
             if max_clicks is not None and click_count >= max_clicks:
+                return False
+            if before_click is not None and not before_click():
                 return False
             if click_target is not None:
                 if self.click(click_target, interval=interval):

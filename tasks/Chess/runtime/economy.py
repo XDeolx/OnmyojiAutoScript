@@ -303,6 +303,13 @@ class ChessEconomyMixin:
         matched_name: str,
     ) -> bool:
         """持续点击目标商店格，直到原头像不再出现在该格。"""
+        blocked_key = (getattr(self, '_current_round_no', None), slot_index, matched_name)
+        blocked = getattr(self, '_blocked_hand_purchases', set())
+        if blocked_key in blocked:
+            return False
+        # Keep failures bounded across repeated economy-loop calls as well.
+        self._blocked_hand_purchases = {key for key in blocked if key[0] == blocked_key[0]}
+        self._blocked_hand_purchases.add(blocked_key)
         known_price = SHIKIGAMI_BY_ROMAJI[matched_name].cost
         deadline = time.monotonic() + self.SHOP_BUY_TIMEOUT
         current_match = self._recognize_shop_slot(
@@ -333,6 +340,9 @@ class ChessEconomyMixin:
                 )
                 return False
             hand_count = self._hand_capacity_count()
+            if hand_count > 10:
+                logger.warning(f'Cancel Chess purchase: invalid hand count={hand_count}; do not sell cards')
+                return False
             if hand_count >= 10:
                 logger.info(f'Chess hand full before purchase: count={hand_count}/10; clear space first')
                 if emergency_cleanup_done and lineup_sale_done:
@@ -360,82 +370,23 @@ class ChessEconomyMixin:
                 visible=lambda: self._recognize_shop_slot(
                     slot_index, click_rule, expected_name=matched_name,
                 ) is not None,
-                guard=lambda: self._is_purchase_allowed() and not self.appear(self.I_SELECT_GRIGRI),
+                guard=lambda: (self._is_purchase_allowed()
+                               and not self.appear(self.I_SELECT_GRIGRI)),
+                before_click=lambda: self._hand_capacity_count() < 10,
                 interval=0.3,
-                timeout=min(2.0, max(0.0, deadline-time.monotonic())),
+                timeout=min(8.0, max(0.0, deadline-time.monotonic())),
                 confirm_frames=2,
                 max_clicks=3,
             )
             if clicked_and_gone:
                 # 已确认购买完成，旧卡的点击不应计入此格下一张卡。
                 self.device.click_record_remove(click_rule)
+                self._blocked_hand_purchases.discard(blocked_key)
                 return True
-            if not self._is_purchase_allowed() or self.appear(self.I_SELECT_GRIGRI):
-                return False
-            current_match = self._recognize_shop_slot(
-                slot_index,
-                click_rule,
-                expected_name=matched_name,
-            )
-            if current_match is None:
-                # Timeout or pre-click disappearance did not pass two-frame confirmation.
-                return False
-            if current_match is not None:
-                if not self._is_purchase_allowed():
-                    logger.debug(
-                        f'Stop buying {matched_name}: Hyakki mode detected'
-                    )
-                    return False
-                if not self._can_afford_shop_shikigami(
-                    slot_index,
-                    known_price=known_price,
-                ):
-                    logger.debug(
-                        f'Stop retrying {matched_name}: insufficient gold '
-                        f'for shop slot {slot_index}'
-                    )
-                    return False
-                logger.debug(
-                    f'Chess shop slot {slot_index} still matches '
-                    f'{matched_name} after click, free hand space and retry'
-                )
-                if emergency_cleanup_done and lineup_sale_done:
-                    logger.warning(
-                        f'Chess buy {matched_name} remains blocked after '
-                        'emergency cleanup and one lineup-card sale; cancel current purchase'
-                    )
-                    return False
-                sell_lineup = emergency_cleanup_done
-                recovery = self._free_one_hand_slot_for_purchase(
-                    sell_lineup=sell_lineup,
-                )
-                if recovery is None:
-                    logger.warning(
-                        f'Chess buy {matched_name} is still unconfirmed and '
-                        'no safe hand card can be cleared; block shop refresh'
-                    )
-                    return False
-                if sell_lineup or recovery.get('type') == 'lineup':
-                    emergency_cleanup_done = True
-                    lineup_sale_done = True
-                    logger.debug(
-                        f'Retry Chess buy {matched_name} after selling one '
-                        'lineup card'
-                    )
-                else:
-                    emergency_cleanup_done = True
-                    logger.debug(
-                        f'Retry Chess buy {matched_name} after emergency '
-                        'hand cleanup'
-                    )
-
-        if current_match is None:
-            logger.debug(
-                'Chess shop purchase succeeded by identity disappearance: '
-                f'slot={slot_index}, name={matched_name}, attempts={attempts}'
-            )
-            return True
-
+            # An unconfirmed purchase is not evidence that another card must
+            # be sold. Leave this slot alone until the next round.
+            logger.warning(f'Chess purchase unconfirmed; defer slot={slot_index}, name={matched_name} until next round')
+            return False
         logger.warning(
             f'Chess shop purchase timed out: slot={slot_index}, '
             f'name={matched_name}, identity remains in slot'
@@ -556,6 +507,7 @@ class ChessEconomyMixin:
         return self.buy_lineup_shikigami_from_shop()
 
     def _reset_economy_state(self) -> None:
+        self._blocked_hand_purchases = set()
         """重置单局可暂停的回目结束任务和商店状态。"""
         self._economy_pending = False
         self._economy_step_state = 'idle'
