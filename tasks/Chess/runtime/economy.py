@@ -975,7 +975,19 @@ class ChessEconomyMixin:
 
     def _coin_is_full(self) -> bool:
         """仅按本周额度退出，兼容活动期间本周进度移到右侧的布局。"""
+        recovered = False
         for attempt in range(1, 4):
+            # 返回后的新截图可能才出现分享页，不能在结算画面读取大厅额度。
+            self.screenshot()
+            if self.chess_result_page_visible() or not self.appear(self.I_CHECK_CHESS):
+                if recovered:
+                    raise GameStuckError('Chess lobby did not remain stable before coin check')
+                logger.info('Chess coin check: finish pending result flow before reading quota')
+                self.return_to_chess_lobby()
+                recovered = True
+                self.screenshot()
+                if self.chess_result_page_visible() or not self.appear(self.I_CHECK_CHESS):
+                    raise GameStuckError('Chess lobby not confirmed after result recovery')
             quotas = self._read_coin_quotas()
             if quotas is not None:
                 current, total = quotas['weekly']

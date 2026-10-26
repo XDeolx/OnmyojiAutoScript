@@ -97,7 +97,8 @@ class ChessBattleNavigationMixin:
         share_seen = False
         exit_clicked = False
         safe_clicks = 0
-        rank_recovery_started = False
+        lobby_since = None
+        lobby_frames = 0
         next_rank_safe_click_at = 0.0
         fallback_exit_at = time.monotonic() + 1.5
 
@@ -106,22 +107,28 @@ class ChessBattleNavigationMixin:
             self.screenshot()
 
             if self._advance_chess_result_stage():
+                lobby_since = None
+                lobby_frames = 0
                 exit_clicked = True
                 share_seen = True
                 time.sleep(self.CHESS_EXIT_SCREENSHOT_INTERVAL)
                 continue
 
             if self.appear(self.I_CHECK_CHESS) and not self.chess_result_page_visible():
-                return True
-
-            if rank_recovery_started and self.appear(self.I_CHECK_CHESS):
-                logger.debug('Global Chess result flow: lobby reached from rank page')
-                return True
+                if lobby_since is None:
+                    lobby_since = time.monotonic()
+                lobby_frames += 1
+                if lobby_frames >= 3 and time.monotonic() - lobby_since >= 1.5:
+                    logger.info('Chess result flow: lobby confirmed across stable frames')
+                    return True
+                time.sleep(self.CHESS_EXIT_SCREENSHOT_INTERVAL)
+                continue
+            lobby_since = None
+            lobby_frames = 0
 
             rank_page = self.appear(self.I_CHECK_CHESS_RANK)
             rank_button = self.appear(self.I_CHESS_RANK_GOTO_LOBBY)
             if rank_page or rank_button:
-                rank_recovery_started = True
                 if rank_button:
                     self.appear_then_click(
                         self.I_CHESS_RANK_GOTO_LOBBY,
@@ -178,13 +185,6 @@ class ChessBattleNavigationMixin:
             if not share_seen:
                 time.sleep(self.CHESS_EXIT_SCREENSHOT_INTERVAL)
                 continue
-
-            if self.appear(self.I_CHECK_CHESS):
-                logger.debug(
-                    'Global Chess result flow: lobby reached after share, '
-                    f'safe_clicks={safe_clicks}'
-                )
-                return True
 
             safe_clicks += 1
             from tasks.GameUi.default_pages import random_click
