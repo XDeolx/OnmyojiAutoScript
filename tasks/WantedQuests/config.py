@@ -37,10 +37,8 @@ class WQType(str, Enum):
 class WQInfo:
     """悬赏信息"""
     type: WQType    # 悬赏类型
-    dest: str       # 目的地(探索第十章/秘闻第七层/...)
     number: int     # 怪物数量
     goto_btn: RuleImage # 前往按钮
-    do_num: int     # 执行次数(探索一章节4个怪,需要打12个怪,则执行3次)
 
 
 class CooperationType(int, Enum):
