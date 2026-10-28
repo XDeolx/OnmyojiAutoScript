@@ -286,7 +286,8 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
                       if kind in (WQType.CHALLENGE, WQType.EXPLORE, WQType.SECRET)]
         if not priorities:
             return None
-        # Search one priority at a time so a hidden higher-priority row wins.
+        # Fragment challenges, when available, are always at the top.
+        # Other categories may be scattered throughout the scrollable list.
         for kind in priorities:
             self._reset_route_scroll()
             unreadable = False
@@ -298,6 +299,9 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
                 if selected is not None:
                     logger.info(f'Wanted route priority matched: {kind.value}, page={page}')
                     return selected
+                if kind == WQType.CHALLENGE:
+                    logger.info('No usable fragment challenge at list top; try next configured priority')
+                    break
                 before = list_fingerprint(self.device.image)
                 self._scroll_routes(up=True)
                 unchanged = unchanged + 1 if same_list(before, list_fingerprint(self.device.image)) else 0
@@ -310,6 +314,7 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
         return None
 
     def _scroll_routes(self, up: bool):
+        original = list_fingerprint(self.device.image)
         start, end = (944, 445), (945, 375)
         if not up:
             start, end = end, start
@@ -323,6 +328,10 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
             self.screenshot()
             stable = stable + 1 if same_list(before, list_fingerprint(self.device.image)) else 0
             if stable >= 2:
+                # A settled, changed list is navigation progress, not a stuck click.
+                # Leave other controls and stationary swipes under normal protection.
+                if not same_list(original, list_fingerprint(self.device.image)):
+                    self.device.click_record_remove('wq_detail_scroll')
                 return
         raise RequestHumanTakeover('悬赏列表滑动后未稳定，停止继续滑动并保留追踪')
 
