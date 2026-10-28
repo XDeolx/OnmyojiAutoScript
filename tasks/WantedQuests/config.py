@@ -2,7 +2,7 @@
 # @author runhey
 # github https://github.com/runhey
 from cached_property import cached_property
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from module.atom.image import RuleImage
 
@@ -38,7 +38,8 @@ class WQInfo:
     """悬赏信息"""
     type: WQType    # 悬赏类型
     number: int     # 怪物数量
-    goto_btn: RuleImage # 前往按钮
+    goto_btn: RuleImage = field(compare=False) # 前往按钮随滚动变化，不作为路线身份
+    route_text: str = ''
 
 
 class CooperationType(int, Enum):

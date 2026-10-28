@@ -13,8 +13,10 @@ from cached_property import cached_property
 
 from module.atom.image import RuleImage
 from module.atom.ocr import RuleOcr
+from module.atom.swipe import RuleSwipe
+from tasks.WantedQuests.routes import read_routes, list_fingerprint, same_list
 from module.base.timer import Timer
-from module.exception import TaskEnd
+from module.exception import TaskEnd, RequestHumanTakeover
 from module.image.recipes import match_highlight_rule
 from module.logger import logger
 from tasks.Component.Costume.config import MainType
@@ -257,20 +259,13 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
             self.goto_page(page_exploration)
             return False
         # 获取排序后的悬赏信息列表
-        ordered_wq_infos = self.get_ordered_wq_infos(num_want)
-        if not ordered_wq_infos:
-            logger.info('Current wanted quest skipped all, cancel it')
-            self.ui_click(self.I_WQ_TRACE_ONE_ENABLE, self.I_WQ_TRACE_ONE_DISABLE)
-            self.ui_click_until_disappear(self.I_UI_BACK_RED, interval=1.5)
-            self.goto_page(page_exploration)
-            return False
+        wq_info = self.select_wq_with_retry(num_want)
         wq_call_dict: dict[WQType, Callable] = {
             WQType.CHALLENGE: self.challenge,
             WQType.EXPLORE: self.explore,
             WQType.SECRET: self.secret
         }
         # 获取当前需要执行的悬赏策略
-        wq_info = self.get_need_exec_wq(ordered_wq_infos)
         if not wq_info:
             logger.info('Current wanted quests can not be executed')
             self.ui_click(self.I_WQ_TRACE_ONE_ENABLE, self.I_WQ_TRACE_ONE_DISABLE)
@@ -287,6 +282,62 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
             self.wq_executed_set.add((self._wanted_target_text, num_want, wq_info))
             self.goto_page(page_exploration)
 
+    def select_wq_with_retry(self, num_want: int) -> Optional[WQInfo]:
+        # Search one priority at a time so a hidden higher-priority row wins.
+        for kind in self.get_config()._wq_type_ordered_list:
+            if kind not in (WQType.CHALLENGE, WQType.EXPLORE, WQType.SECRET):
+                continue
+            self._reset_route_scroll()
+            unreadable = False
+            unchanged = 0
+            for page in range(13):
+                routes = self._read_visible_routes_with_retry(num_want)
+                unreadable |= self._wq_row_read_failed
+                selected = self.get_need_exec_wq([r for r in routes if r.type == kind])
+                if selected is not None:
+                    logger.info(f'Wanted route priority matched: {kind.value}, page={page}')
+                    return selected
+                before = list_fingerprint(self.device.image)
+                self._scroll_routes(up=True)
+                unchanged = unchanged + 1 if same_list(before, list_fingerprint(self.device.image)) else 0
+                if unchanged >= 2:
+                    break
+            else:
+                raise RequestHumanTakeover('悬赏列表翻页达到上限，保留追踪，请检查页面')
+            if unreadable:
+                raise RequestHumanTakeover('悬赏存在未识别路线，无法确认优先级，已保留追踪')
+        return None
+
+    def _scroll_routes(self, up: bool):
+        start, end = ((940, 510, 8, 4), (940, 285, 8, 4))
+        if not up:
+            start, end = end, start
+        self.swipe(RuleSwipe(start, end, mode='default', name='wq_detail_scroll'))
+        sleep(0.6)
+        self.screenshot()
+
+    def _reset_route_scroll(self):
+        self.screenshot()
+        unchanged = 0
+        for _ in range(13):
+            before = list_fingerprint(self.device.image)
+            self._scroll_routes(up=False)
+            unchanged = unchanged + 1 if same_list(before, list_fingerprint(self.device.image)) else 0
+            if unchanged >= 2:
+                return
+        raise RequestHumanTakeover('悬赏列表无法确认顶部，保留追踪，请检查页面')
+
+    def _read_visible_routes_with_retry(self, num_want: int):
+        for attempt in range(3):
+            self.screenshot()
+            routes = self.get_ordered_wq_infos(num_want)
+            if not self._wq_row_read_failed:
+                return routes
+            if attempt < 2:
+                sleep(0.5)
+        logger.warning('Some wanted rows remain unreadable after 3 reads; keep tracking enabled')
+        return routes
+
     def get_need_exec_wq(self, ordered_wq_infos: List[WQInfo]) -> Optional[WQInfo]:
         """获取需要执行的悬赏(按优先级选择最靠前的)"""
         for wq_info in ordered_wq_infos:
@@ -300,12 +351,10 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
 
     def get_ordered_wq_infos(self, num_want: int) -> List[WQInfo]:
         """获取当前悬赏妖怪页面排好序的信息列表, 会自动排除无法执行的悬赏"""
-        wq_type_ocr = [self.O_WQ_TYPE_1, self.O_WQ_TYPE_2, self.O_WQ_TYPE_3, self.O_WQ_TYPE_4]
-        goto_btn_list = [self.I_GOTO_1, self.I_GOTO_2, self.I_GOTO_3, self.I_GOTO_4]
+        visible, self._wq_row_read_failed = read_routes(self.device.image)
         wq_info_list = []
-        for i in range(4):
-            wq_info = self.build_wq_info(wq_type_ocr[i], goto_btn_list[i])
-            if not wq_info:
+        for wq_info in visible:
+            if wq_info.type not in self.get_config()._wq_type_ordered_list:
                 continue
             # 只有剩余数量也未变化时，才判定这条路线未取得进展。
             if (self._wanted_target_text, num_want, wq_info) in self.wq_executed_set:
@@ -320,7 +369,8 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
     @staticmethod
     def parse_wq_row(text: str):
         text = ''.join(text.split()).replace('：', ':')
-        type_match = re.match(r'^(式神碎片|式神|挑战|探索|秘闻|妖气)', text)
+        text = text.lstrip('[]［］【】()（）「」『』.,，。:：')
+        type_match = re.match(r'^(式神碎片|神碎片|式神|挑战|探索|秘闻|私闻|妖气)', text)
         number_match = re.search(r'[数教]量:([0-9]+)', text)
         if not type_match or not number_match:
             return None
@@ -328,14 +378,18 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
         if number <= 0:
             return None
         kind = type_match.group(1)
-        return WQType('挑战' if kind in ('式神碎片', '式神') else kind), number
+        kind = {'式神碎片': '挑战', '神碎片': '挑战', '式神': '挑战', '私闻': '秘闻'}.get(kind, kind)
+        return WQType(kind), number
 
     def build_wq_info(self, type_rule: RuleOcr, goto_btn_rule: RuleImage) -> Optional[WQInfo]:
         row_text = type_rule.ocr(self.device.image)
         parsed = self.parse_wq_row(row_text)
         if parsed is None:
             logger.warning(f'Unknown wanted quest row: {row_text}')
+            if row_text.strip() or self.appear(goto_btn_rule):
+                self._wq_row_read_failed = True
             return None
+        self._wq_rows_parsed = getattr(self, '_wq_rows_parsed', 0) + 1
         wq_type, number = parsed
         if wq_type not in self.get_config()._wq_type_ordered_list:
             return None
