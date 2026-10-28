@@ -15,6 +15,11 @@ LABELS = {
     WQType.SECRET: RuleImage((640, 437, 65, 29), (630, 270, 135, 300), 'Template matching', .8, './tasks/WantedQuests/wq/route_secret.png'),
 }
 
+def ignored_route_label(label):
+    """Recognize unsupported categories, including the observed clipped yokai label."""
+    label = ''.join(label.split()).lstrip('[]［］【】()（）')
+    return '御魂' in label or '妖气' in label or label.startswith('气骨女')
+
 def locate_rows(image):
     template = WantedQuestsAssets.I_GOTO_1.image
     scores = cv2.matchTemplate(image[270:572, 1040:1165], template, cv2.TM_CCOEFF_NORMED)
@@ -46,7 +51,7 @@ def read_routes(image):
         text = ''.join(raw.split()).replace('：', ':')
         if kind is None:
             label = RuleOcr(roi=(632, center-19, 125, 38), area=(632, center-19, 125, 38), mode='Single', method='Default', keyword='', name='wq_route_kind').ocr(image)
-            if '妖气' in label:
+            if ignored_route_label(label):
                 continue
         number = re.search(r'[数教]量[:：](\d+)', text)
         if kind is None or number is None or int(number[1]) <= 0:

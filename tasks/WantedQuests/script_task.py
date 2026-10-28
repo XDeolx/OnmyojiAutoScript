@@ -286,17 +286,12 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
                       if kind in (WQType.CHALLENGE, WQType.EXPLORE, WQType.SECRET)]
         if not priorities:
             return None
-        visible = self._read_visible_routes_with_retry(num_want)
-        selected = self.get_need_exec_wq([r for r in visible if r.type == priorities[0]])
-        if selected is not None:
-            logger.info('Wanted highest-priority route already visible; no scrolling needed')
-            return selected
         # Search one priority at a time so a hidden higher-priority row wins.
         for kind in priorities:
             self._reset_route_scroll()
             unreadable = False
             unchanged = 0
-            for page in range(13):
+            for page in range(32):
                 routes = self._read_visible_routes_with_retry(num_want)
                 unreadable |= self._wq_row_read_failed
                 selected = self.get_need_exec_wq([r for r in routes if r.type == kind])
@@ -315,7 +310,7 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
         return None
 
     def _scroll_routes(self, up: bool):
-        start, end = (944, 465), (945, 355)
+        start, end = (944, 445), (945, 375)
         if not up:
             start, end = end, start
         self.device.swipe(start, end, duration=0.35, control_name='wq_detail_scroll')
@@ -334,7 +329,7 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
     def _reset_route_scroll(self):
         self.screenshot()
         unchanged = 0
-        for _ in range(13):
+        for _ in range(32):
             before = list_fingerprint(self.device.image)
             self._scroll_routes(up=False)
             unchanged = unchanged + 1 if same_list(before, list_fingerprint(self.device.image)) else 0
