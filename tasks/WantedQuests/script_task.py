@@ -13,7 +13,6 @@ from cached_property import cached_property
 
 from module.atom.image import RuleImage
 from module.atom.ocr import RuleOcr
-from module.atom.swipe import RuleSwipe
 from tasks.WantedQuests.routes import read_routes, list_fingerprint, same_list
 from module.base.timer import Timer
 from module.exception import TaskEnd, RequestHumanTakeover
@@ -283,10 +282,17 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
             self.goto_page(page_exploration)
 
     def select_wq_with_retry(self, num_want: int) -> Optional[WQInfo]:
+        priorities = [kind for kind in self.get_config()._wq_type_ordered_list
+                      if kind in (WQType.CHALLENGE, WQType.EXPLORE, WQType.SECRET)]
+        if not priorities:
+            return None
+        visible = self._read_visible_routes_with_retry(num_want)
+        selected = self.get_need_exec_wq([r for r in visible if r.type == priorities[0]])
+        if selected is not None:
+            logger.info('Wanted highest-priority route already visible; no scrolling needed')
+            return selected
         # Search one priority at a time so a hidden higher-priority row wins.
-        for kind in self.get_config()._wq_type_ordered_list:
-            if kind not in (WQType.CHALLENGE, WQType.EXPLORE, WQType.SECRET):
-                continue
+        for kind in priorities:
             self._reset_route_scroll()
             unreadable = False
             unchanged = 0
@@ -300,7 +306,7 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
                 before = list_fingerprint(self.device.image)
                 self._scroll_routes(up=True)
                 unchanged = unchanged + 1 if same_list(before, list_fingerprint(self.device.image)) else 0
-                if unchanged >= 2:
+                if unchanged >= 1:
                     break
             else:
                 raise RequestHumanTakeover('悬赏列表翻页达到上限，保留追踪，请检查页面')
@@ -309,12 +315,21 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
         return None
 
     def _scroll_routes(self, up: bool):
-        start, end = ((940, 510, 8, 4), (940, 285, 8, 4))
+        start, end = (944, 465), (945, 355)
         if not up:
             start, end = end, start
-        self.swipe(RuleSwipe(start, end, mode='default', name='wq_detail_scroll'))
-        sleep(0.6)
+        self.device.swipe(start, end, duration=0.35, control_name='wq_detail_scroll')
+        sleep(0.4)
         self.screenshot()
+        stable = 0
+        for _ in range(8):
+            before = list_fingerprint(self.device.image)
+            sleep(0.25)
+            self.screenshot()
+            stable = stable + 1 if same_list(before, list_fingerprint(self.device.image)) else 0
+            if stable >= 2:
+                return
+        raise RequestHumanTakeover('悬赏列表滑动后未稳定，停止继续滑动并保留追踪')
 
     def _reset_route_scroll(self):
         self.screenshot()
@@ -323,7 +338,7 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
             before = list_fingerprint(self.device.image)
             self._scroll_routes(up=False)
             unchanged = unchanged + 1 if same_list(before, list_fingerprint(self.device.image)) else 0
-            if unchanged >= 2:
+            if unchanged >= 1:
                 return
         raise RequestHumanTakeover('悬赏列表无法确认顶部，保留追踪，请检查页面')
 
