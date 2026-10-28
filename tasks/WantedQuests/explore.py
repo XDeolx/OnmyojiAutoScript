@@ -17,6 +17,7 @@ class ExploreWantedBoss(Exception):
 class WQExplore(ExplorationScriptTask, HighLight):
     _explor_cnt: int = 0  # 探索次数
     _max_cnt: int = 0  # 探索最大次数
+    _unlock_boss: bool = False
 
     def _default_detect_categories(self) -> set[str]:
         categories = super()._default_detect_categories()
@@ -27,29 +28,40 @@ class WQExplore(ExplorationScriptTask, HighLight):
         if self.appear(self.TEMPLATE_GIF):
             self.fire_monster_type = 'wq_normal'
             return self.TEMPLATE_GIF
+        if self._unlock_boss and self.appear(self.I_NORMAL_BATTLE_BUTTON):
+            self.fire_monster_type = 'wq_unlock'
+            return self.I_NORMAL_BATTLE_BUTTON
         return None
 
     def check_exit(self, current_page: pages.Page | None) -> bool:
         need_exit = self._explor_cnt >= self._max_cnt
-        # 探索次数已经够了但是任何怪物都没打过
-        if need_exit and self.fire_monster_type == '':
-            raise ExploreWantedBoss
         return need_exit
 
     def arrive_end(self) -> bool:
         arrived_end = BaseExploration.arrive_end(self)
-        self._explor_cnt += 1 if arrived_end else 0
+        if arrived_end:
+            if not self._unlock_boss and self.fire_monster_type == '':
+                logger.info('No wanted minion found; re-enter chapter and defeat minions to unlock boss')
+                self._unlock_boss = True
+            elif self._unlock_boss:
+                # Do not loop through empty chapters forever if the boss fails to appear.
+                raise ExploreWantedBoss
+            else:
+                self._explor_cnt += 1
         return arrived_end
 
-    def fire(self, button) -> bool:
-        fired = super().fire(button)
-        self._explor_cnt += 1 if fired and self.fire_monster_type == 'boss' else 0
-        return fired
+    def run_on_battle(self):
+        super().run_on_battle()
+        # Count the chapter only after returning from battle, not on entry.
+        if self.fire_monster_type == 'boss':
+            self._explor_cnt += 1
 
     def explore(self, goto: RuleImage, num: int):
         logger.info(f'Start exploring with number: {num}')
         self._max_cnt = num
         self._explor_cnt = 0
+        self._unlock_boss = False
+        self.fire_monster_type = ''
         while True:
             self.screenshot()
             if pages.page_exp_entrance == self.get_current_page():
