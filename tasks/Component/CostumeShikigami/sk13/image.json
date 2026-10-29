@@ -169,5 +169,14 @@
     "method": "Template matching",
     "threshold": 0.8,
     "description": "梦隙闲花"
+  },
+  {
+    "itemName": "st_souls_close_13",
+    "imageName": "sk13_st_souls_close_13.png",
+    "roiFront": "1184,234,56,70",
+    "roiBack": "1176,224,72,88",
+    "method": "Template matching",
+    "threshold": 0.8,
+    "description": "梦隙闲花未选中御魂入口"
   }
 ]

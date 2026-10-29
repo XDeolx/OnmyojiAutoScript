@@ -545,3 +545,5 @@ class CostumeShikigamiAssets:
 	I_SOU_CHECK_GROUP_7_13 = RuleImage(roi_front=(1090,510,16,32), roi_back=(1086,505,25,45), threshold=0.9, method="Template matching", file="./tasks/Component/CostumeShikigami/sk13/sk13_sou_check_group_7_13.png")
 	I_ST_SOULS_13 = RuleImage(roi_front=(1197,238,33,61), roi_back=(1170,220,78,90), threshold=0.8, method="Template matching", file="./tasks/Component/CostumeShikigami/sk13/sk13_st_souls_13.png")
 	I_ST_REPLACE_13 = RuleImage(roi_front=(875,268,71,34), roi_back=(860,255,102,60), threshold=0.8, method="Template matching", file="./tasks/Component/CostumeShikigami/sk13/sk13_st_replace_13.png")
+	# 梦隙闲花未选中御魂入口
+	I_ST_SOULS_CLOSE_13 = RuleImage(roi_front=(1184,234,56,70), roi_back=(1176,224,72,88), threshold=0.8, method="Template matching", file="./tasks/Component/CostumeShikigami/sk13/sk13_st_souls_close_13.png")

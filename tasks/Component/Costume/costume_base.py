@@ -86,6 +86,7 @@ shikigami_costume_model = {
         **{f'I_SOU_SWITCH_{t}': f'I_SOU_SWITCH_{t}_{i}' for t in range(1, 5)},
         # SoulsTidy 相关
         'I_ST_SOULS': f'I_ST_SOULS_{i}',
+        'I_ST_SOULS_CLOSE': f'I_ST_SOULS_CLOSE_{i}',
         'I_ST_REPLACE': f'I_ST_REPLACE_{i}',
     }
     for i in range(1, 14)  # COSTUME_SHIKIGAMI_1 到 COSTUME_SHIKIGAMI_13
