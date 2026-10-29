@@ -1,0 +1,173 @@
+[
+  {
+    "itemName": "check_records_13",
+    "imageName": "sk13_check_records_13.png",
+    "roiFront": "276,81,32,34",
+    "roiBack": "267,72,54,52",
+    "method": "Template matching",
+    "threshold": 0.8,
+    "description": "梦隙闲花"
+  },
+  {
+    "itemName": "sou_check_in_13",
+    "imageName": "sk13_sou_check_in_13.png",
+    "roiFront": "276,81,32,34",
+    "roiBack": "267,72,54,52",
+    "method": "Template matching",
+    "threshold": 0.8,
+    "description": "梦隙闲花"
+  },
+  {
+    "itemName": "record_soul_back_13",
+    "imageName": "sk13_record_soul_back_13.png",
+    "roiFront": "19,9,51,44",
+    "roiBack": "19,9,51,44",
+    "method": "Template matching",
+    "threshold": 0.8,
+    "description": "梦隙闲花"
+  },
+  {
+    "itemName": "soul_preset_13",
+    "imageName": "sk13_soul_preset_13.png",
+    "roiFront": "345,84,65,33",
+    "roiBack": "330,72,96,54",
+    "method": "Template matching",
+    "threshold": 0.8,
+    "description": "梦隙闲花"
+  },
+  {
+    "itemName": "sou_team_present_13",
+    "imageName": "sk13_sou_team_present_13.png",
+    "roiFront": "734,81,101,31",
+    "roiBack": "725,72,124,51",
+    "method": "Template matching",
+    "threshold": 0.8,
+    "description": "梦隙闲花"
+  },
+  {
+    "itemName": "sou_switch_1_13",
+    "imageName": "sk13_sou_switch_1_13.png",
+    "roiFront": "980,143,25,23",
+    "roiBack": "972,136,39,34",
+    "method": "Template matching",
+    "threshold": 0.8,
+    "description": "梦隙闲花"
+  },
+  {
+    "itemName": "sou_switch_2_13",
+    "imageName": "sk13_sou_switch_2_13.png",
+    "roiFront": "980,297,25,23",
+    "roiBack": "972,290,39,34",
+    "method": "Template matching",
+    "threshold": 0.8,
+    "description": "梦隙闲花"
+  },
+  {
+    "itemName": "sou_switch_3_13",
+    "imageName": "sk13_sou_switch_3_13.png",
+    "roiFront": "980,451,25,23",
+    "roiBack": "972,444,39,34",
+    "method": "Template matching",
+    "threshold": 0.8,
+    "description": "梦隙闲花"
+  },
+  {
+    "itemName": "sou_switch_4_13",
+    "imageName": "sk13_sou_switch_4_13.png",
+    "roiFront": "980,605,25,23",
+    "roiBack": "972,598,39,34",
+    "method": "Template matching",
+    "threshold": 0.8,
+    "description": "梦隙闲花"
+  },
+  {
+    "itemName": "sou_click_present_13",
+    "imageName": "sk13_sou_click_present_13.png",
+    "roiFront": "980,297,25,23",
+    "roiBack": "972,135,39,497",
+    "method": "Template matching",
+    "threshold": 0.8,
+    "description": "梦隙闲花"
+  },
+  {
+    "itemName": "sou_check_group_1_13",
+    "imageName": "sk13_sou_check_group_1_13.png",
+    "roiFront": "1090,90,16,32",
+    "roiBack": "1086,85,25,45",
+    "method": "Template matching",
+    "threshold": 0.9,
+    "description": "梦隙闲花"
+  },
+  {
+    "itemName": "sou_check_group_2_13",
+    "imageName": "sk13_sou_check_group_2_13.png",
+    "roiFront": "1090,160,16,32",
+    "roiBack": "1086,155,25,45",
+    "method": "Template matching",
+    "threshold": 0.9,
+    "description": "梦隙闲花"
+  },
+  {
+    "itemName": "sou_check_group_3_13",
+    "imageName": "sk13_sou_check_group_3_13.png",
+    "roiFront": "1090,230,16,32",
+    "roiBack": "1086,225,25,45",
+    "method": "Template matching",
+    "threshold": 0.9,
+    "description": "梦隙闲花"
+  },
+  {
+    "itemName": "sou_check_group_4_13",
+    "imageName": "sk13_sou_check_group_4_13.png",
+    "roiFront": "1090,300,16,32",
+    "roiBack": "1086,295,25,45",
+    "method": "Template matching",
+    "threshold": 0.9,
+    "description": "梦隙闲花"
+  },
+  {
+    "itemName": "sou_check_group_5_13",
+    "imageName": "sk13_sou_check_group_5_13.png",
+    "roiFront": "1090,370,16,32",
+    "roiBack": "1086,365,25,45",
+    "method": "Template matching",
+    "threshold": 0.9,
+    "description": "梦隙闲花"
+  },
+  {
+    "itemName": "sou_check_group_6_13",
+    "imageName": "sk13_sou_check_group_6_13.png",
+    "roiFront": "1090,440,16,32",
+    "roiBack": "1086,435,25,45",
+    "method": "Template matching",
+    "threshold": 0.9,
+    "description": "梦隙闲花"
+  },
+  {
+    "itemName": "sou_check_group_7_13",
+    "imageName": "sk13_sou_check_group_7_13.png",
+    "roiFront": "1090,510,16,32",
+    "roiBack": "1086,505,25,45",
+    "method": "Template matching",
+    "threshold": 0.9,
+    "description": "梦隙闲花"
+  },
+  {
+    "itemName": "st_souls_13",
+    "imageName": "sk13_st_souls_13.png",
+    "roiFront": "1197,238,33,61",
+    "roiBack": "1170,220,78,90",
+    "method": "Template matching",
+    "threshold": 0.8,
+    "description": "梦隙闲花"
+  },
+  {
+    "itemName": "st_replace_13",
+    "imageName": "sk13_st_replace_13.png",
+    "roiFront": "875,268,71,34",
+    "roiBack": "860,255,102,60",
+    "method": "Template matching",
+    "threshold": 0.8,
+    "description": "梦隙闲花"
+  }
+]
