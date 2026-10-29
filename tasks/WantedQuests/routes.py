@@ -15,10 +15,22 @@ LABELS = {
     WQType.SECRET: RuleImage((640, 437, 65, 29), (630, 270, 135, 300), 'Template matching', .8, './tasks/WantedQuests/wq/route_secret.png'),
 }
 
+YOKAI_LABEL = RuleImage((640, 362, 65, 29), (630, 270, 135, 300),
+                        'Template matching', .8, './tasks/WantedQuests/wq/route_yokai.png')
+
 def ignored_route_label(label):
-    """Recognize unsupported categories, including the observed clipped yokai label."""
-    label = ''.join(label.split()).lstrip('[]［］【】()（）')
-    return '御魂' in label or '妖气' in label or label.startswith('气骨女')
+    """Classify only the isolated category badge, never the monster name."""
+    label = ''.join(label.split()).strip('[]［］【】()（）:：.,，。')
+    return label in ('御魂', '妖气')
+
+def read_route_label(image, center):
+    # The badge ends at x=709. Including the destination caused OCR to drop
+    # 妖 and concatenate 气 with the monster name (气骨女 / 气跳跳).
+    crop = image[center-23:center+23, 632:711]
+    scaled = cv2.resize(crop, None, fx=3, fy=3, interpolation=cv2.INTER_CUBIC)
+    roi = (0, 0, scaled.shape[1], scaled.shape[0])
+    return RuleOcr(roi=roi, area=roi, mode='Single', method='Default',
+                   keyword='', name='wq_route_kind').ocr(scaled)
 
 def locate_rows(image):
     template = WantedQuestsAssets.I_GOTO_1.image
@@ -37,22 +49,23 @@ def read_routes(image):
     centers = locate_rows(image)
     for center in centers:
         label_image = image[center-23:center+23, 630:760]
+        if cv2.minMaxLoc(cv2.matchTemplate(label_image, YOKAI_LABEL.image,
+                                          cv2.TM_CCOEFF_NORMED))[1] >= .8:
+            continue
         matches = []
         for kind, rule in LABELS.items():
             score = cv2.minMaxLoc(cv2.matchTemplate(label_image, rule.image, cv2.TM_CCOEFF_NORMED))[1]
             if score >= .8:
                 matches.append((score, kind))
         kind = max(matches)[1] if matches else None
+        if kind is None and ignored_route_label(read_route_label(image, center)):
+            continue
         left = 758 if kind == WQType.CHALLENGE else 714
         crop = image[center-14:center+14, left:1025]
         scaled = cv2.resize(crop, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
         roi = (0, 0, scaled.shape[1], scaled.shape[0])
         raw = RuleOcr(roi=roi, area=roi, mode='Single', method='Default', keyword='', name='wq_route_detail').ocr(scaled)
         text = ''.join(raw.split()).replace('：', ':')
-        if kind is None:
-            label = RuleOcr(roi=(632, center-19, 125, 38), area=(632, center-19, 125, 38), mode='Single', method='Default', keyword='', name='wq_route_kind').ocr(image)
-            if ignored_route_label(label):
-                continue
         number = re.search(r'[数教]量[:：](\d+)', text)
         if kind is None or number is None or int(number[1]) <= 0:
             failed = True
