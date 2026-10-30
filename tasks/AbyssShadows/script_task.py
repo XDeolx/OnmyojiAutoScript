@@ -618,7 +618,7 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, AbyssShadowsAssets):
         while True:
             self.screenshot()
             if need_check_damage:
-                _cur_damage = self.O_DAMAGE.ocr_digit(self.device.image)
+                _cur_damage = self.read_battle_damage(_cur_damage)
             if condition.is_valid(_cur_damage):
                 logger.info(f"Condition Validated,try to quit battle")
                 self.device.screenshot_interval_set()
@@ -650,6 +650,13 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, AbyssShadowsAssets):
 
         logger.info(f"{enemy_type.name} DONE")
         return success
+
+    def read_battle_damage(self, previous_damage):
+        try:
+            return self.O_DAMAGE.ocr_digit(self.device.image)
+        except ValueError as exc:
+            logger.warning(f'Abyss damage OCR invalid; retry next frame, keep {previous_damage}: {ascii(str(exc))}')
+            return previous_damage
 
     def quit_battle(self):
         logger.info("Quitting battle")

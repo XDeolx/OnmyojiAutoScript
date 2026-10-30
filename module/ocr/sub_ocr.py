@@ -104,7 +104,9 @@ class Digit(Single):
         for old, new in replacements.items():
             result = result.replace(old, new)
 
-        result = [char for char in result if char.isdigit()]
+        # int() accepts decimal digits, but not every isdigit() character
+        # (for example superscript ² and circled ① from noisy frames).
+        result = [char for char in result if char.isdecimal()]
         result = ''.join(result)
 
         prev = result
