@@ -342,7 +342,15 @@ def retry(func):
             """Rebuild only the failed minitouch control connection."""
             client = getattr(self, '_minitouch_client', None)
             if client is not None:
+                try:
+                    client.shutdown(socket.SHUT_RDWR)
+                except OSError:
+                    pass
                 client.close()
+                self._minitouch_client = None
+            if self._minitouch_port:
+                self.adb_forward_remove(f'tcp:{self._minitouch_port}')
+                self._minitouch_port = 0
             del_cached_property(self, 'minitouch_builder')
 
         for _ in range(RETRY_TRIES):
@@ -383,10 +391,8 @@ def retry(func):
                 logger.error(e)
 
                 def init():
+                    reset_minitouch_connection()
                     self.restart_atx()
-                    if self._minitouch_port:
-                        self.adb_forward_remove(f'tcp:{self._minitouch_port}')
-                    del_cached_property(self, 'minitouch_builder')
             # AdbError
             except AdbError as e:
                 if handle_adb_error(e):
@@ -449,30 +455,25 @@ class Minitouch(Connection):
         while 1:
             client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             client.settimeout(1)
-            client.connect(('127.0.0.1', self._minitouch_port))
-            self._minitouch_client = client
-
-            # get minitouch server info
-            socket_out = client.makefile()
-
-            # v <version>
-            # protocol version, usually it is 1. needn't use this
             try:
-                out = socket_out.readline().replace("\n", "").replace("\r", "")
-            except socket.timeout:
+                client.connect(('127.0.0.1', self._minitouch_port))
+                # makefile holds an additional socket reference; always close it,
+                # including timeout and malformed handshake paths.
+                with client.makefile() as socket_out:
+                    version = socket_out.readline().strip()
+                    capabilities = socket_out.readline().strip()
+                    pid_line = socket_out.readline().strip()
+                logger.info(version)
+                logger.info(capabilities)
+                logger.info(pid_line)
+                _, max_contacts, max_x, max_y, max_pressure, *_ = capabilities.split(" ")
+                _, pid = pid_line.split(" ")
+            except socket.timeout as exc:
                 client.close()
                 raise MinitouchOccupiedError(
                     'Timeout when connecting to minitouch, '
                     'probably because another connection has been established'
-                )
-            logger.info(out)
-
-            # ^ <max-contacts> <max-x> <max-y> <max-pressure>
-            out = socket_out.readline().replace("\n", "").replace("\r", "")
-            logger.info(out)
-            try:
-                _, max_contacts, max_x, max_y, max_pressure, *_ = out.split(" ")
-                break
+                ) from exc
             except ValueError:
                 client.close()
                 if retry_timeout.reached():
@@ -484,6 +485,11 @@ class Minitouch(Connection):
                     # Minitouch may not start that fast
                     self.sleep(1)
                     continue
+            except Exception:
+                client.close()
+                raise
+            self._minitouch_client = client
+            break
 
         # self.max_contacts = max_contacts
         self.max_x = int(max_x)
@@ -494,9 +500,6 @@ class Minitouch(Connection):
             self.max_pressure = 100
 
         # $ <pid>
-        out = socket_out.readline().replace("\n", "").replace("\r", "")
-        logger.info(out)
-        _, pid = out.split(" ")
         self._minitouch_pid = pid
 
         logger.info(

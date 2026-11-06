@@ -3,10 +3,9 @@
 # github https://github.com/runhey
 from datetime import datetime
 
-from module.exception import RequestHumanTakeover, TaskEnd
+from module.exception import TaskEnd
 from module.logger import logger
 from tasks.Component.Login.service import LoginService
-from tasks.Restart.server_update import delay_pending_tasks_for_server_update, is_server_update_window
 from tasks.base_task import BaseTask
 
 
@@ -25,12 +24,9 @@ class ScriptTask(BaseTask):
         主要就是登录的模块
         :return:
         """
-        try:
-            self.recover_app()
-            self.finish_recovery()
-        except RequestHumanTakeover:
-            if not self.delay_pending_tasks(reason='login failed during Restart recovery'):
-                raise
+        # A failed login must retain its real error, regardless of time of day.
+        self.recover_app()
+        self.finish_recovery()
         raise TaskEnd
 
     def app_stop(self):
@@ -68,16 +64,6 @@ class ScriptTask(BaseTask):
             self.config.task_call('DailyTrifles')
         self._set_runtime_outcome(status='recovered')
 
-    def delay_pending_tasks(self, reason: str) -> bool:
-        """
-        仅在早间登录失败时，统一延后待执行任务。
-        @return:
-        """
-        if not is_server_update_window():
-            return False
-        delay_target = delay_pending_tasks_for_server_update(self.config, reason=reason)
-        self._set_runtime_outcome(status='server_update_delayed', wait_until=delay_target)
-        return True
 
 
 if __name__ == '__main__':

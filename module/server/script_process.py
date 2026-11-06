@@ -3,7 +3,10 @@
 # 脚本进程
 # github https://github.com/runhey
 import multiprocessing
-from asyncio import QueueEmpty, CancelledError, sleep
+from pathlib import Path
+from filelock import FileLock, Timeout
+from asyncio import CancelledError, sleep, to_thread, Lock
+from queue import Empty as QueueEmpty
 from enum import Enum
 
 from module.logger import logger
@@ -33,6 +36,7 @@ class ScriptProcess(ScriptWSManager):
         self.state_queue = _SCRIPT_PROCESS_CONTEXT.Queue()
         self.state: ScriptState = ScriptState.INACTIVE
         self._process = None
+        self._lifecycle_lock = Lock()
 
     @staticmethod
     def _extract_log_dedup_key(log: str) -> str | None:
@@ -48,13 +52,19 @@ class ScriptProcess(ScriptWSManager):
         return message
 
     async def start(self):
-        self.state = ScriptState.RUNNING
-        await self.broadcast_state({"state": self.state})
-        if self._process:
-            logger.warning(f'Script {self.config_name} is initialized')
+        async with self._lifecycle_lock:
+            await self._start()
+
+    async def _start(self):
         if self._process and self._process.is_alive():
-            logger.warning(f'Script {self.config_name} is already running and first stop it')
-            self.stop()
+            logger.warning(f'Script {self.config_name} is already running')
+            return
+        if self._process is not None:
+            self._process.join(timeout=0)
+            self._process = None
+        # An old process may have queued WARNING just before it exited.
+        self.state_queue.close()
+        self.state_queue = _SCRIPT_PROCESS_CONTEXT.Queue()
         self._process = _SCRIPT_PROCESS_CONTEXT.Process(
             target=func,
             args=(self.config_name, self.state_queue, self.log_pipe_in,),
@@ -62,18 +72,26 @@ class ScriptProcess(ScriptWSManager):
             daemon=True,
         )
         self._process.start()
+        self.state = ScriptState.RUNNING
+        await self.broadcast_state({"state": self.state})
 
 
     async def stop(self):
+        async with self._lifecycle_lock:
+            await self._stop()
+
+    async def _stop(self):
         self.state = ScriptState.INACTIVE
         await self.broadcast_state({"state": self.state})
         if self._process is None:
             logger.warning(f'Script {self.config_name} process is removed')
             return
-        if not self._process.is_alive():
-            logger.warning(f'Script {self.config_name} is not running')
-            return
-        self._process.terminate()
+        if self._process.is_alive():
+            self._process.terminate()
+        await to_thread(self._process.join, 2)
+        if self._process.is_alive():
+            self._process.kill()
+            await to_thread(self._process.join, 2)
         self._process = None
 
     async def coroutine_broadcast_state(self):
@@ -83,7 +101,13 @@ class ScriptProcess(ScriptWSManager):
                     await sleep(1)
                     continue
                 await sleep(0.1)
+                if self.state == ScriptState.INACTIVE:
+                    continue
                 try:
+                    if self._process is not None and not self._process.is_alive():
+                        if self.state != ScriptState.WARNING:
+                            self.state = ScriptState.WARNING
+                            await self.broadcast_state({"state": self.state})
                     if self.state_queue.empty():
                         await sleep(1)
                         continue
@@ -91,8 +115,8 @@ class ScriptProcess(ScriptWSManager):
                     if not data:
                         await sleep(0.5)
                         continue
-                    if 'state' in data and data['state'] == ScriptState.WARNING:
-                        self.state = ScriptState.WARNING
+                    if 'state' in data:
+                        self.state = ScriptState(data['state'])
                     await self.broadcast_state(data)
                 except QueueEmpty as e:
                     logger.warning(f'QueueEmpty: {e}')
@@ -141,6 +165,22 @@ class ScriptProcess(ScriptWSManager):
 
 
 def func(config: str, state_queue: multiprocessing.Queue, log_pipe_in) -> None:
+    # OS-backed lock is released even when a worker is forcibly terminated.
+    # Acquire before opening its account log or touching the device.
+    lock = FileLock(str(Path('config') / f'{config}.worker.lock'))
+    try:
+        lock.acquire(timeout=0)
+    except Timeout:
+        logger.error(f'Script {config} already has a worker; refusing duplicate process')
+        state_queue.put({"state": ScriptState.WARNING})
+        return
+    try:
+        _run_script(config, state_queue, log_pipe_in)
+    finally:
+        lock.release()
+
+
+def _run_script(config: str, state_queue: multiprocessing.Queue, log_pipe_in) -> None:
 
     def start_log() -> None:
         try:
