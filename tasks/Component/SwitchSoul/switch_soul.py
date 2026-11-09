@@ -1,7 +1,7 @@
 # This Python file uses the following encoding: utf-8
 # @author runhey
 # github https://github.com/runhey
-from time import sleep
+from time import sleep, monotonic
 from typing import Union
 
 from module.atom.click import RuleClick
@@ -11,6 +11,7 @@ from tasks.base_task import BaseTask
 from tasks.Component.SwitchSoul.assets import SwitchSoulAssets
 from tasks.Component.SwitchSoul.audio_download import AudioDownloadPrompt
 from module.logger import logger
+from module.exception import GamePageUnknownError
 
 
 def switch_parser(switch_str: str) -> tuple:
@@ -21,6 +22,45 @@ def switch_parser(switch_str: str) -> tuple:
 
 
 class SwitchSoul(BaseTask, SwitchSoulAssets, AudioDownloadPrompt):
+
+    def confirm_soul_switch(self, select_team):
+        """Wait for delayed confirmation and a stable preset page before returning."""
+        deadline = monotonic() + 30
+        selected_at = None
+        stable_since = None
+        confirmed = False
+        while monotonic() < deadline:
+            self.screenshot()
+            if self.dismiss_audio_download():
+                stable_since = None
+                continue
+            # Check overlays before the preset page visible behind them.
+            popup = next((rule for rule in (self.I_SOU_SWITCH_SURE, self.I_CHECK_BLOCK)
+                          if self.appear(rule)), None)
+            if popup is not None:
+                stable_since = None
+                if self.click(popup, interval=1):
+                    confirmed = True
+                continue
+            if selected_at is None:
+                if select_team():
+                    selected_at = monotonic()
+                continue
+            preset_visible = any(self.appear(rule) for rule in (
+                self.I_SOU_SWITCH_1, self.I_SOU_SWITCH_2, self.I_SOU_SWITCH_3,
+                self.I_SOU_SWITCH_4, self.I_SOU_TEAM_PRESENT))
+            if not preset_visible:
+                stable_since = None
+                continue
+            if stable_since is None:
+                stable_since = monotonic()
+            # Already-equipped presets may not show a dialog. Give delayed dialogs
+            # five seconds to appear; never issue another selection during this wait.
+            quiet_time = 1.5 if confirmed else 5.0
+            if monotonic() - stable_since >= quiet_time:
+                logger.info('Soul preset confirmation settled')
+                return
+        raise GamePageUnknownError('御魂预设确认未完成，停止返回操作')
 
     def run_switch_soul(self, target: tuple | list[tuple] | str):
         """
@@ -120,22 +160,7 @@ class SwitchSoul(BaseTask, SwitchSoulAssets, AudioDownloadPrompt):
             sleep(0.5)
         # 点击队伍
         target_team = get_team_asset(team)
-        for i in range(3):
-            sleep(0.8)
-            self.screenshot()
-            if self.appear(self.I_SOU_SWITCH_SURE):
-                while 1:
-                    self.click(self.I_SOU_SWITCH_SURE, 3)
-                    self.screenshot()
-                    if self.appear_then_click(self.I_CHECK_BLOCK, 3):
-                        continue
-                    if not self.appear(self.I_SOU_SWITCH_SURE):
-                        break
-                continue
-            if not self.appear_then_click(target_team, interval=3):
-                logger.warning(f'Click team {team} failed in group {group}')
-        # 兜底若还出现确认按钮则点击
-        self.ui_click_until_disappear(self.I_SOU_SWITCH_SURE)
+        self.confirm_soul_switch(lambda: self.appear_then_click(target_team, interval=3))
         logger.info(f'Switch soul_one group {group} team {team}')
 
     def switch_souls(self, target: tuple or list[tuple]) -> None:
@@ -158,6 +183,12 @@ class SwitchSoul(BaseTask, SwitchSoulAssets, AudioDownloadPrompt):
         """
         while 1:
             self.screenshot()
+            if self.appear(self.I_SOU_SWITCH_SURE):
+                self.click(self.I_SOU_SWITCH_SURE, interval=1)
+                continue
+            if self.appear(self.I_CHECK_BLOCK):
+                self.click(self.I_CHECK_BLOCK, interval=1)
+                continue
             if not self.appear(self.I_SOU_CHECK_IN):
                 break
             if self.appear_then_click(self.I_RECORD_SOUL_BACK, interval=3.5):
@@ -246,17 +277,9 @@ class SwitchSoul(BaseTask, SwitchSoulAssets, AudioDownloadPrompt):
         # 选中分组
         logger.info(f'Select team {teamName}')
         # 切换御魂
-        cnt_click: int = 0
         self.O_SS_TEAM_NAME.keyword = teamName
-        while 1:
-            self.screenshot()
-            if cnt_click >= 4:
-                break
-            if self.appear_then_click(self.I_SOU_SWITCH_SURE, interval=0.8):
-                continue
-            if self.ocr_appear_click_by_rule(self.O_SS_TEAM_NAME, self.I_SOU_CLICK_PRESENT, interval=1.5):
-                cnt_click += 1
-                continue
+        self.confirm_soul_switch(lambda: self.ocr_appear_click_by_rule(
+            self.O_SS_TEAM_NAME, self.I_SOU_CLICK_PRESENT, interval=1.5))
         logger.info(f'Switch soul_one group {groupName} team {teamName}')
 
     def ocr_appear_click_by_rule(self,

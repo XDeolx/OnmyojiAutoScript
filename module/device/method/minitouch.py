@@ -349,7 +349,12 @@ def retry(func):
                 client.close()
                 self._minitouch_client = None
             if self._minitouch_port:
-                self.adb_forward_remove(f'tcp:{self._minitouch_port}')
+                try:
+                    self.adb_forward_remove(f'tcp:{self._minitouch_port}')
+                except AdbError as exc:
+                    if 'listener' not in str(exc) or 'not found' not in str(exc):
+                        raise
+                    logger.info('Minitouch forward already removed; rebuild connection')
                 self._minitouch_port = 0
             del_cached_property(self, 'minitouch_builder')
 

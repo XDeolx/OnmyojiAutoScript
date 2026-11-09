@@ -2041,11 +2041,29 @@ class ChessHandOperationsMixin:
         cards = self._recognized_emblem_hand_cards()
         return cards[0] if cards else None
 
+    def _resolve_pending_discovery(self) -> bool:
+        """Finish a delayed discovery overlay before touching board coordinates."""
+        rules = (self.I_SELECT_SOUL_1, self.I_SELECT_SOUL_2, self.I_SELECT_SOUL_3)
+        self.screenshot()
+        if not all(self.appear(rule) for rule in rules):
+            return False
+        selected = random.choice(rules)
+        for attempt in range(self.ACTION_ICON_MAX_ATTEMPTS):
+            self.click(selected)
+            if self._wait_chess_action_state(
+                lambda: not any(self.appear(rule) for rule in rules)
+            ):
+                logger.info('Chess pending discovery resolved; defer recall to refresh board state')
+                return True
+        raise GameStuckError('Chess: pending discovery selection did not close')
+
     def _recall_one_system_board_card(
         self,
         preferred_set_index: int | None = None,
     ) -> int | None:
         """满员上卡时只下阵一个系统卡位，成功则返回对应站位。"""
+        if self._resolve_pending_discovery():
+            return None
         if not self._is_preparation_mode():
             return None
         if self._is_boss_challenge_round():
@@ -2085,6 +2103,8 @@ class ChessHandOperationsMixin:
             source = self._set_position(set_index)
             goldfish_kept_at_target = False
             for attempt in range(1, self.ACTION_ICON_MAX_ATTEMPTS + 1):
+                if self._resolve_pending_discovery():
+                    return None
                 if self._hand_capacity_count() >= 10:
                     logger.info('Pause Chess system-card recall: hand is full, no room for recalled card')
                     return None
