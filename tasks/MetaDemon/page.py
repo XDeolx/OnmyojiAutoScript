@@ -12,7 +12,8 @@ def clear_activity_overlay(task):
 
 
 def enter_meta_demon_boss(task):
-    return (task.appear_then_click(A.I_PAGE_METADEMON_MD_CHECK_MAIN_PAGE, interval=0.8)
+    return (task.appear_then_click(A.I_METADEMON_ENTRY_LABEL, interval=0.8)
+            or task.appear_then_click(A.I_PAGE_METADEMON_MD_CHECK_MAIN_PAGE, interval=0.8)
             or task.appear_then_click(A.I_PAGE_METADEMON_MD_CHECK_MAIN_PAGE_BACKUP, interval=0.8))
 
 

@@ -9,3 +9,4 @@ class NavigationAssets:
     I_PAGE_METADEMON_CHECK_BOSS_PAGE = RuleImage(roi_front=(1064, 19, 43, 40), roi_back=(1054, 7, 62, 63), threshold=0.8, method='Template matching', file='./tasks/MetaDemon/md/page_check_metademon_check_boss_page.png')
     I_PAGE_METADEMON_MD_CHECK_MAIN_PAGE = RuleImage(roi_front=(907, 60, 76, 208), roi_back=(869, 14, 171, 288), threshold=0.8, method='Template matching', file='./tasks/MetaDemon/md/page_check_metademon_md_check_main_page.png')
     I_PAGE_METADEMON_MD_CHECK_MAIN_PAGE_BACKUP = RuleImage(roi_front=(907, 60, 76, 208), roi_back=(869, 14, 171, 288), threshold=0.8, method='Template matching', file='./tasks/MetaDemon/md/page_checks_page_metademon_md_check_main_page_backup.png')
+    I_METADEMON_ENTRY_LABEL = RuleImage(roi_front=(994, 182, 22, 74), roi_back=(970, 150, 70, 140), threshold=0.8, method='Template matching', file='./tasks/MetaDemon/md/page_metademon_entry_label.png')

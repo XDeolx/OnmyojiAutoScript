@@ -74,6 +74,10 @@ class BossBattle(GeneralBattle, SwitchSoul, QuickLoadout, GameUi, MetaDemonAsset
         self.conf = self.config.meta_demon
         self.limit_time = self.conf.meta_demon_config.limit_time_v
         self.limit_count = self.conf.meta_demon_config.limit_count
+
+    def _bind_soul_return(self):
+        # Only bind the return destination after reaching the boss page.
+        # Otherwise records opened from the courtyard/realm raid become a false shortcut.
         page_shikigami_records = self.navigator.resolve_page(ipages.page_shikigami_records)
         page_meta_demon_boss = self.navigator.resolve_page(ipages.page_meta_demon_boss)
         page_main = self.navigator.resolve_page(ipages.page_main)
@@ -92,7 +96,9 @@ class BossBattle(GeneralBattle, SwitchSoul, QuickLoadout, GameUi, MetaDemonAsset
             MetaDemonAssets.I_MD_SHIKIGAMI,
             key="page_meta_demon_boss->page_shikigami_records",
         )
-        page_main.remove_transition(key="page_main->page_shikigami_records")
+        for source in self.navigator.pages.values():
+            if source.key != page_meta_demon_boss.key:
+                source.remove_transition(destination=page_shikigami_records)
 
     def run(self):
         self.before_run()
@@ -405,6 +411,7 @@ class BossBattle(GeneralBattle, SwitchSoul, QuickLoadout, GameUi, MetaDemonAsset
         """按鬼王分类应用御魂；显式开启快速上阵时通过 frame 装魂并上阵。"""
         if self.cur_boss_type is None:
             return True
+        self._bind_soul_return()
         if self._use_legacy_soul():
             old = self.conf.switch_soul
             key = self.cur_boss_type
