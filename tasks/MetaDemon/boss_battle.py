@@ -19,7 +19,7 @@ from tasks.MetaDemon.ticket_stars import recognize_ticket_stars
 import tasks.MetaDemon.page as ipages
 
 from module.logger import logger
-from module.exception import TaskEnd
+from module.exception import TaskEnd, RequestHumanTakeover
 
 
 class BossBattle(GeneralBattle, SwitchSoul, QuickLoadout, GameUi, MetaDemonAssets):
@@ -208,10 +208,30 @@ class BossBattle(GeneralBattle, SwitchSoul, QuickLoadout, GameUi, MetaDemonAsset
         if not self.check_fatigue():
             return False
         if self.cur_boss_type is None and self.appear(self.I_MD_FIRE):
-            logger.info('已有鬼王星级未知，沿用当前阵容并使用普通追击')
-            return self.check_and_switch_powerful()
+            self.restore_existing_boss()
+            return self.check_and_switch_soul() and self.check_and_switch_powerful()
         self.synthesis_boss_ticket()
         return self.check_and_switch_ticket() and self.check_and_switch_soul() and self.check_and_switch_powerful()
+
+    def restore_existing_boss(self):
+        """Recover the current boss from its portrait, never from summon order."""
+        previous = None
+        for _ in range(3):
+            self.screenshot()
+            if not self.appear(self.I_MD_FIRE):
+                raise RequestHumanTakeover('恢复已有鬼王时挑战页发生变化，请确认界面后重试')
+            stars = recognize_ticket_stars(self.device.image, self.I_SHARE_DEMON.roi_back)
+            if stars is not None and stars == previous:
+                self.cur_boss_type = BossType(stars)
+                self._boss_generation = getattr(self, '_boss_generation', 0) + 1
+                self._active_loadout_group = None
+                # Attempts before restart are unknown; do not replay paid powerful attacks.
+                self._current_boss_attempts = self.conf.meta_demon_config.powerful_count
+                logger.info(f'恢复已有鬼王：{stars}星，重新按首领规则配置阵容；本轮不重置限次强力追击')
+                return
+            previous = stars
+            time.sleep(0.3)
+        raise RequestHumanTakeover('已有鬼王星级无法稳定识别，未点击挑战，请保留画面检查')
 
     def synthesis_boss_ticket(self):
         """合成鬼王"""
