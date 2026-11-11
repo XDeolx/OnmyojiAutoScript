@@ -209,10 +209,10 @@ class QuickLoadout(BaseTask, SwitchSoulAssets):
 
         return QuickLoadoutLayout(
             panel, group_ocr, preset_ocr,
-            swipe('quick_loadout_group_to_top', (55,105,25,20), (55,285,25,20)),
-            swipe('quick_loadout_group_down', (55,285,25,20), (55,105,25,20)),
-            swipe('quick_loadout_preset_to_top', (355,105,30,20), (355,280,30,20)),
-            swipe('quick_loadout_preset_down', (355,280,30,20), (355,105,30,20)),
+            swipe('quick_loadout_group_to_top', (55,180,15,12), (55,255,15,12)),
+            swipe('quick_loadout_group_down', (55,255,15,12), (55,180,15,12)),
+            swipe('quick_loadout_preset_to_top', (355,180,20,12), (355,255,20,12)),
+            swipe('quick_loadout_preset_down', (355,255,20,12), (355,180,20,12)),
             x + round(self.GROUP_CLICK_X * sx),
             x + round(self.PRESET_SELECT_X * sx),
             x + round(self.PRESET_EQUIP_X * sx),
@@ -278,24 +278,6 @@ class QuickLoadout(BaseTask, SwitchSoulAssets):
         logger.warning('Cannot close quick loadout panel safely')
         return False
 
-    def _rewind_list(self, ocr: RuleOcr, swipe: RuleSwipe, max_swipes: int) -> None:
-        """将列表拖到顶部；OCR 内容连续不变时提前停止。"""
-        previous = None
-        stable_count = 0
-        for _ in range(max_swipes):
-            self.screenshot()
-            results = ocr.detect_and_ocr(self.device.image, logDisplay=False)
-            current = tuple(result.ocr_text for result in results)
-            if current and current == previous:
-                stable_count += 1
-                if stable_count >= 2:
-                    return
-            else:
-                stable_count = 0
-            previous = current
-            self.swipe(swipe)
-            sleep(0.45)
-
     @staticmethod
     def _quick_loadout_name_matches(actual: str, expected: str) -> bool:
         return bool(expected and actual == expected)
@@ -326,23 +308,29 @@ class QuickLoadout(BaseTask, SwitchSoulAssets):
     def _find_list_name(
         self, ocr: RuleOcr, target: str, swipe_to_top: RuleSwipe, swipe_down: RuleSwipe, max_swipes: int,
     ) -> tuple[int | None, float]:
-        y, score, _ = self._find_visible_name(ocr, target)
+        y, score, current = self._find_visible_name(ocr, target)
         if y is not None and score >= 0.55:
             return y, score
 
-        self._rewind_list(ocr, swipe_to_top, max_swipes)
-        previous = None
-        stable_count = 0
-        for index in range(max_swipes + 1):
-            y, score, current = self._find_visible_name(ocr, target)
-            if y is not None and score >= 0.55:
-                return y, score
-            stable_count = stable_count + 1 if current and current == previous else 0
-            if stable_count >= 2 or index == max_swipes:
-                break
+        # Search where we are first; never rewind past a visible target blindly.
+        for direction in (swipe_down, swipe_to_top):
             previous = current
-            self.swipe(swipe_down)
-            sleep(0.6)
+            stable_count = 0
+            empty_count = 0
+            for _ in range(max_swipes):
+                self.swipe(direction)
+                sleep(0.6)
+                y, score, current = self._find_visible_name(ocr, target)
+                if y is not None and score >= 0.55:
+                    return y, score
+                empty_count = empty_count + 1 if not current else 0
+                stable_count = stable_count + 1 if current and current == previous else 0
+                if empty_count >= 2:
+                    logger.warning(f'Quick loadout OCR repeatedly empty while finding {target}; stop scrolling')
+                    return None, 0.0
+                if stable_count >= 2:
+                    break
+                previous = current
         return None, 0.0
 
     def _select_group(self, layout: QuickLoadoutLayout, config: QuickLoadoutConfig) -> bool:
