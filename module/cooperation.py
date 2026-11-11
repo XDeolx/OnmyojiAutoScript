@@ -282,7 +282,9 @@ class Cooperation:
     def wake_next(self, config):
         """Only called at a scheduler boundary, so an active task is never interrupted."""
         for task, source in self.requested():
-            if ((task == 'MetaDemon' and self.runner_task(source) != task)
+            if task not in ('MetaDemon', 'MetaDemonTicket'):
+                continue
+            if ((task in ('MetaDemon', 'MetaDemonTicket') and self.runner_task(source) != task)
                     or (task == 'MetaDemonTicket' and not self.matches_meta_demon_tickets(source))):
                 self.ack(task)
                 continue
@@ -365,7 +367,7 @@ class Cooperation:
             peer_waiting = db.execute('SELECT 1 FROM waiting WHERE name=? AND task=?',
                                       (peer, task)).fetchone()
             available = runner is not None and now - runner[1] < 30
-            if task == 'MetaDemon' and (not available or runner[0] not in ('', task)):
+            if task in ('MetaDemon', 'MetaDemonTicket') and (not available or runner[0] not in ('', task)):
                 reason = runner[0] if available else '未运行'
                 db.execute('DELETE FROM wakes WHERE target=? AND source=? AND task=?',
                            (peer, self.name, task))

@@ -300,6 +300,11 @@ class Script:
             #         logger.info(f"[{self.config_name}] exited. Reason: Update")
             #         exit(0)
 
+            cooperation = self.__dict__.get('_cooperation')
+            if (cooperation and not self.runtime.server_update_wait_until
+                    and (wake_task := cooperation.wake_next(self.config))):
+                self._cooperation_wake_task = wake_task
+                return False
             time.sleep(5)
 
             if self.config.should_reload():
@@ -311,7 +316,14 @@ class Script:
         :return:
         """
         while True:
+            cooperation = self.__dict__.get('_cooperation')
+            wake_task = cooperation.wake_next(self.config) if cooperation else None
+            wake_task = wake_task or getattr(self, '_cooperation_wake_task', None)
+            self._cooperation_wake_task = None
             task = self.config.get_next()
+            if wake_task and task.command != 'Restart':
+                task = next((item for item in self.config.pending_task
+                             if item.command == wake_task), task)
             self.config.task = task
             if self.state_queue:
                 self.state_queue.put({"schedule": self.config.get_schedule_data()})
@@ -404,12 +416,24 @@ class Script:
             module_path = str(Path.cwd() / 'tasks' / command / (module_name + '.py'))
             logger.info(f'module_path: {module_path}, module_name: {module_name}')
             task_module = load_module(module_name, module_path)
-            task_module.ScriptTask(config=self.config, device=self.device).run()
+            task_instance = task_module.ScriptTask(config=self.config, device=self.device)
+            task_instance.cooperation_runtime = self.__dict__.get('_cooperation')
+            task_instance.run()
         except Exception as e:
             return self._handle_task_exception(e, command)
         return False
 
     def loop(self):
+        from module.cooperation import Cooperation
+        self._cooperation = Cooperation(self.config_name)
+        try:
+            self._cooperation.start()
+            return self._scheduler_loop()
+        finally:
+            self._cooperation.close()
+            self._cooperation = None
+
+    def _scheduler_loop(self):
         """
         Main loop of scheduler.
         :return:
@@ -468,8 +492,13 @@ class Script:
             self.device.click_record_clear()
             logger.hr(task, level=0)
             self.config.model.running_task = task
-            success = self.run(inflection.camelize(task))
-            self.config.model.running_task = ''
+            self._cooperation.publish(task)
+            try:
+                success = self.run(inflection.camelize(task))
+            finally:
+                self.config.model.running_task = ''
+                self._cooperation.publish('')
+                self._cooperation.finish(task)
             logger.info(f'Scheduler: End task `{task}`')
             self.is_first_task = False
 

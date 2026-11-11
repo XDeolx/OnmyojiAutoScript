@@ -27,6 +27,7 @@ class AssistanceLink:
         settings = task.conf.assistance_config
         self.peer = settings.cooperation_script
         self.runtime = getattr(task, 'cooperation_runtime', None) or Cooperation(task.config.config_name)
+        self.peer = self.peer or self.runtime.accepted_peer('MetaDemon')
         self.session = uuid4().hex
         self.batch = None
         self.channel = self.CHANNEL
@@ -43,6 +44,7 @@ class AssistanceLink:
                 other = self.runtime.read(path.stem).get('meta_demon', {})
                 other_settings = other.get('assistance_config', {})
                 if (other.get('scheduler', {}).get('enable')
+                        and MetaDemonMode.BOSS_ASSIST in other.get('meta_demon_config', {}).get('mode', [])
                         and other_settings.get('role') == other_role
                         and other_settings.get('cooperation_script') == self.runtime.name):
                     peers.append(path.stem)

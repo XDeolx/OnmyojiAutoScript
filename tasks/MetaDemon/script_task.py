@@ -14,15 +14,19 @@ class ScriptTask(BossBattle):
                 from tasks.MetaDemon.assistance import run_assistance
                 from module.cooperation import Cooperation
                 self.start_time = datetime.now()
-                runtime = Cooperation(self.config.config_name)
-                runtime.start()
+                runtime = getattr(self, 'cooperation_runtime', None)
+                owned_runtime = runtime is None
+                runtime = runtime or Cooperation(self.config.config_name)
+                if owned_runtime:
+                    runtime.start()
                 runtime.publish('MetaDemon')
                 self.cooperation_runtime = runtime
                 try:
                     return run_assistance(self)
                 finally:
                     runtime.clear_outgoing_battle_states('MetaDemonAssistance')
-                    runtime.close()
+                    if owned_runtime:
+                        runtime.close()
                     self.cooperation_runtime = None
             if mode == MetaDemonMode.BOSS_BATTLE:
                 self.start_time = datetime.now()

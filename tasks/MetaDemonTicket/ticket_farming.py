@@ -208,12 +208,13 @@ def run_ticket_farming(owner, mode) -> bool:
     try:
         if peer:
             runner._ticket_phase_started = runtime.begin_completion_phase('MetaDemonTicket', peer)
-            # This branch has no scheduler-wide wake dispatcher. Require an active peer.
+            if not runtime.prepare(owner.config, 'MetaDemonTicket', peer, defer=False):
+                return False
             import time
             deadline = time.monotonic() + 30
             while runtime.runner_task(peer) != 'MetaDemonTicket':
                 if time.monotonic() >= deadline:
-                    logger.warning('协同实例尚未启动超鬼王门票任务，本轮跳过')
+                    runtime.skip_without_wake('MetaDemonTicket', peer, '等待协同实例启动超时')
                     return False
                 time.sleep(1)
             cooperation_started = True
