@@ -356,9 +356,13 @@ class GhostOffering:
             return True
         if not self.settled and t.appear(t.I_MD_FIRE):
             self.empty_frames = 0
+            if t.cur_boss_type is None:
+                # Restart loses in-memory summon state. Recover from two frames
+                # before sharing; never infer six stars from the offering mode.
+                t.restore_existing_boss()
             if t.cur_boss_type != BossType.SIX_STARS:
                 if not self.unknown_reported:
-                    logger.warning('已有鬼王星级未确认，不分享、不挑战；等待其消失后仅召唤六星')
+                    logger.warning(f'已有鬼王为 {int(t.cur_boss_type)} 星，不分享、不挑战；等待其消失后仅召唤六星')
                     self.unknown_reported = True
             elif self.shared_generation != t._boss_generation:
                 if not self.share():
