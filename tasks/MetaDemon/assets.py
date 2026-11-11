@@ -106,3 +106,11 @@ class MetaDemonAssets:
 	S_MD_SWIPE_FRIEND_UP = RuleSwipe(roi_front=(784,398,55,20), roi_back=(792,340,56,23), mode="default", name="md_swipe_friend_up")
 	#
 	S_MD_SWIPE_UP = RuleSwipe(roi_front=(146,459,55,20), roi_back=(146,398,56,23), mode="default", name="md_swipe_up")
+
+	I_BORROW_CONFIRM_TITLE = RuleImage(roi_front=(470, 220, 345, 33), roi_back=(465, 215, 355, 43), threshold=0.95, method="Template matching", file="./tasks/MetaDemon/md/borrow_confirm_title.png")
+
+	I_BORROW_UNCHECKED = RuleImage(roi_front=(564, 370, 40, 39), roi_back=(559, 365, 50, 49), threshold=0.95, method="Template matching", file="./tasks/MetaDemon/md/borrow_unchecked.png")
+
+	I_BORROW_CHECKED = RuleImage(roi_front=(564, 370, 40, 39), roi_back=(559, 365, 50, 49), threshold=0.95, method="Template matching", file="./tasks/MetaDemon/md/borrow_checked.png")
+
+	I_BORROW_CONFIRM = RuleImage(roi_front=(666, 440, 171, 54), roi_back=(661, 435, 181, 64), threshold=0.95, method="Template matching", file="./tasks/MetaDemon/md/borrow_confirm.png")

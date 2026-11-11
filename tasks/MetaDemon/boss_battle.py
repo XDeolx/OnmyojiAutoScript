@@ -108,6 +108,8 @@ class BossBattle(GeneralBattle, SwitchSoul, QuickLoadout, GameUi, MetaDemonAsset
             if self.State.done:
                 break
             self.screenshot()
+            if self.handle_borrow_confirmation():
+                continue
             current_page = self.get_current_page()
             match current_page:
                 case ipages.page_activity:
@@ -126,11 +128,25 @@ class BossBattle(GeneralBattle, SwitchSoul, QuickLoadout, GameUi, MetaDemonAsset
         self.set_next_run(task="MetaDemon", success=True)
         self.finish_task()
 
+    def handle_borrow_confirmation(self):
+        if not self.appear(self.I_BORROW_CONFIRM_TITLE):
+            return False
+        # Verify checked state on a fresh frame before confirming; never toggle blindly.
+        if self.appear(self.I_BORROW_CHECKED):
+            self.appear_then_click(self.I_BORROW_CONFIRM, interval=1)
+        elif self.appear(self.I_BORROW_UNCHECKED):
+            self.click(self.I_BORROW_UNCHECKED, interval=1)
+        else:
+            raise RequestHumanTakeover('租借队伍弹窗的不再提示状态未识别，请保留画面检查')
+        return True
+
     def start_battle(self, within_limit=None):
         logger.hr('Click fire, start battle')
         last_challenge = time.monotonic()
         while within_limit is None or within_limit():
             self.screenshot()
+            if self.handle_borrow_confirmation():
+                continue
             if self.is_in_battle(False):
                 self.total_count += 1
                 self._current_boss_attempts += 1
@@ -220,7 +236,7 @@ class BossBattle(GeneralBattle, SwitchSoul, QuickLoadout, GameUi, MetaDemonAsset
             self.screenshot()
             if not self.appear(self.I_MD_FIRE):
                 raise RequestHumanTakeover('恢复已有鬼王时挑战页发生变化，请确认界面后重试')
-            stars = recognize_ticket_stars(self.device.image, self.I_SHARE_DEMON.roi_back)
+            stars = recognize_ticket_stars(self.device.image, self.I_SHARE_DEMON.roi_back, portrait=True)
             if stars is not None and stars == previous:
                 self.cur_boss_type = BossType(stars)
                 self._boss_generation = getattr(self, '_boss_generation', 0) + 1

@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 
 
-def recognize_ticket_stars(image, area, *, synthesis=False) -> int | None:
+def recognize_ticket_stars(image, area, *, synthesis=False, portrait=False) -> int | None:
     x, y, width, height = map(int, area)
     if (image is None or image.ndim != 3 or image.shape[2] != 3
             or min(width, height) <= 0 or x < 0 or y < 0
@@ -12,6 +12,10 @@ def recognize_ticket_stars(image, area, *, synthesis=False) -> int | None:
     card = cv2.resize(image[y:y + height, x:x + width], (72, 72), interpolation=cv2.INTER_LINEAR)
     strip = cv2.cvtColor(card[55:70], cv2.COLOR_RGB2HSV)
     mask = cv2.inRange(strip, (5, 110, 145), (35, 255, 255))
+    if portrait:
+        # Awakened boss portraits use purple stars; summon tickets remain orange.
+        purple = cv2.inRange(strip, (125, 110, 145), (165, 255, 255))
+        mask = cv2.bitwise_or(mask, purple)
     # Convolve each six-pixel-wide star slot to obtain its orange pixel fraction.
     fractions = cv2.filter2D(
         (mask > 0).astype(np.float32), -1, np.ones((15, 6), np.float32) / 90,
