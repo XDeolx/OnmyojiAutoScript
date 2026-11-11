@@ -185,9 +185,6 @@ class Cooperation:
             raise ScriptError(f'协同脚本不存在：{name}')
         with path.open(encoding='utf-8-sig') as stream:
             data = json.load(stream)
-        if 'meta_demon_ticket' not in data and 'meta_demon' in data:
-            from tasks.MetaDemonTicket.config import split_legacy_meta_demon
-            data = split_legacy_meta_demon(data)
         return data
 
     def matches_meta_demon_tickets(self, peer):

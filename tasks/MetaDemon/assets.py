@@ -114,3 +114,5 @@ class MetaDemonAssets:
 	I_BORROW_CHECKED = RuleImage(roi_front=(564, 370, 40, 39), roi_back=(559, 365, 50, 49), threshold=0.95, method="Template matching", file="./tasks/MetaDemon/md/borrow_checked.png")
 
 	I_BORROW_CONFIRM = RuleImage(roi_front=(666, 440, 171, 54), roi_back=(661, 435, 181, 64), threshold=0.95, method="Template matching", file="./tasks/MetaDemon/md/borrow_confirm.png")
+
+	O_METADEMON_PASS_REWARD = RuleOcr(roi=(1126,3,95,39), area=(1126,3,95,39), mode="DigitCounter", method="Default", keyword="", name="metademon_pass_reward")
