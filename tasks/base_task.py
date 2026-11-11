@@ -129,6 +129,18 @@ class BaseTask(GlobalGameAssets, CostumeBase):
         self.device.screenshot()
         # 判断勾协
         self._burst()
+        # Points may appear outside the activity navigation flow.
+        from tasks.MetaDemon.assets import MetaDemonAssets
+        reward = MetaDemonAssets.I_MD_GET_YESTERDAY_REWARD
+        for attempt in range(7):
+            if not self.appear(reward):
+                break
+            if attempt == 6:
+                raise GameStuckError('MetaDemon points popup remains after six attempts')
+            self.click(reward)
+            logger.info('Claim MetaDemon points')
+            self.device.sleep(0.6)
+            self.device.screenshot()
 
         # # 判断网络异常
         # if self.appear(self.I_NETWORK_ABNORMAL):
