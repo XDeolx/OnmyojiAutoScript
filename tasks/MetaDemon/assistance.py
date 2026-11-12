@@ -67,6 +67,7 @@ class AssistanceLink:
             remaining = (self.task.limit_time - (datetime.now() - self.task.start_time)).total_seconds()
             payload = {
                 'portrait': portrait,
+                'stars': int(self.task.cur_boss_type) if portrait and self.task.cur_boss_type is not None else None,
                 'expires': time.time() + max(0, remaining),
             }
             if self.batch:
@@ -82,7 +83,10 @@ class AssistanceLink:
             return None
         portrait = payload.get('portrait')
         if portrait and payload.get('expires', 0) > time.time():
-            return state['session'], state['updated'], portrait
+            stars = payload.get('stars')
+            if type(stars) is not int or stars not in (4, 5, 6):
+                stars = None
+            return state['session'], state['updated'], portrait, stars
         return None
 
     def confirm(self, target, *, settled=False):
@@ -485,7 +489,12 @@ class GhostAssistant:
             logger.warning('协助收到的鬼王截图无效')
             return
         template = cv2.cvtColor(portrait, cv2.COLOR_BGR2RGB)
-        stars = recognize_ticket_stars(template, (0, 0, template.shape[1], template.shape[0]), portrait=True)
+        # The offering side already verified the summoned/restored boss. Carry
+        # its star level with the same session and portrait instead of counting
+        # colored artwork in a small portrait again. Older senders use OCR fallback.
+        stars = target[3] if len(target) > 3 else None
+        if type(stars) is not int or stars not in (4, 5, 6):
+            stars = recognize_ticket_stars(template, (0, 0, template.shape[1], template.shape[0]), portrait=True)
         if stars not in (4, 5, 6):
             logger.warning('协助鬼王头像星级无法确认，暂不挑战')
             return

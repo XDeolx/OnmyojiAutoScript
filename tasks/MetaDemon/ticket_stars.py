@@ -25,9 +25,13 @@ def recognize_ticket_stars(image, area, *, synthesis=False, portrait=False) -> i
     # closer to the left edge than the summon templates.
     centers = (4, 16, 28, 40, 52, 64) if synthesis else (11, 21, 31, 41, 51, 61)
     values = [float(fractions[7, center]) for center in centers]
-    if any(0.08 < value < 0.24 for value in values):
+    # Portrait backgrounds bleed into unlit slots. Require stronger evidence
+    # for lit stars while tolerating small background contamination in empty
+    # slots; keep the ticket/synthesis thresholds unchanged.
+    empty_max, lit_min = (0.18, 0.40) if portrait else (0.08, 0.24)
+    if any(empty_max < value < lit_min for value in values):
         return None
-    illuminated = [value >= 0.24 for value in values]
+    illuminated = [value >= lit_min for value in values]
     stars = sum(illuminated)
     if stars == 0 or illuminated != [True] * stars + [False] * (6 - stars):
         return None
