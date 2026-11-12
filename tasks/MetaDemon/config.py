@@ -210,7 +210,22 @@ class MetaDemonAssistanceConfig(ConfigBase):
     batch_cooperation: Literal[False] = Field(default=False, title='整批鬼王协同',
         description='填写协同脚本后使用，两端均需开启。上供端通过自定义任务切号并逐个上供，协助端持续等待至对端自定义任务结束。')
     role: AssistanceRole = Field(default=AssistanceRole.OFFERING, title='鬼王协助身份',
-        description='上供召唤六星鬼王并分享；协助从超鬼王主页寻找好友分享的鬼王并挑战。')
+        description='上供召唤所选星级鬼王并分享；协助按实际星级配置阵容并挑战。')
+    offering_four_star: bool = Field(default=False, title='上供四星鬼王',
+        description='可与五星、六星同时勾选。仅上供端生效；优先六星，其次五星、四星，有对应门票才召唤。')
+    offering_five_star: bool = Field(default=False, title='上供五星鬼王',
+        description='分享已有或召唤的五星鬼王。至少勾选一种上供星级。')
+    offering_six_star: bool = Field(default=True, title='上供六星鬼王',
+        description='分享已有或召唤的六星鬼王。默认开启，保持原有设置。')
+
+    @property
+    def offering_stars(self) -> tuple[BossType, ...]:
+        return tuple(star for enabled, star in (
+            (self.offering_six_star, BossType.SIX_STARS),
+            (self.offering_five_star, BossType.FIVE_STARS),
+            (self.offering_four_star, BossType.FOUR_STARS),
+        ) if enabled)
+
     friend_names: str = Field(default='', title='分享好友名字',
         description='填写游戏内好友完整名字；多个名字用分号或换行分隔，按名称精确匹配，不使用近似名字。')
     poll_interval: int = Field(default=5, ge=2, le=60, title='协助轮询间隔（秒）',

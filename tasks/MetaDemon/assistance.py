@@ -1,4 +1,4 @@
-"""Share six-star bosses and challenge bosses shared by friends."""
+"""Share selected four-to-six-star bosses and challenge shared bosses."""
 from base64 import b64decode, b64encode
 import re
 import time
@@ -16,6 +16,7 @@ from module.image.rpc import get_image_client
 from module.logger import logger
 from tasks.MetaDemon.batch_assistance import BatchAssistance
 from tasks.MetaDemon.config import AssistanceRole, BossType, MetaDemonMode
+from tasks.MetaDemon.ticket_stars import recognize_ticket_stars
 import tasks.MetaDemon.page as pages
 
 
@@ -280,8 +281,8 @@ class GhostOffering:
 
     def share(self):
         t = self.task
-        if t.cur_boss_type != BossType.SIX_STARS:
-            logger.warning('仅允许分享本次已确认召唤的六星鬼王')
+        if t.cur_boss_type not in self.settings.offering_stars:
+            logger.warning('仅允许分享已确认星级且勾选上供的鬼王')
             return False
         portrait_sent = False
         select_recipients = True
@@ -360,9 +361,9 @@ class GhostOffering:
                 # Restart loses in-memory summon state. Recover from two frames
                 # before sharing; never infer six stars from the offering mode.
                 t.restore_existing_boss()
-            if t.cur_boss_type != BossType.SIX_STARS:
+            if t.cur_boss_type not in self.settings.offering_stars:
                 if not self.unknown_reported:
-                    logger.warning(f'已有鬼王为 {int(t.cur_boss_type)} 星，不分享、不挑战；等待其消失后仅召唤六星')
+                    logger.warning(f'已有鬼王为 {int(t.cur_boss_type)} 星，未勾选上供；等待其消失后召唤所选星级')
                     self.unknown_reported = True
             elif self.shared_generation != t._boss_generation:
                 if not self.share():
@@ -391,7 +392,7 @@ class GhostOffering:
             if not self.within_limit():
                 return True
         self.empty_frames = 0
-        return t.check_and_switch_ticket(sequence=(BossType.SIX_STARS,)) or t.State.done
+        return t.check_and_switch_ticket(sequence=self.settings.offering_stars) or t.State.done
 
 
 class GhostAssistant:
@@ -440,10 +441,10 @@ class GhostAssistant:
             t.appear_then_click(t.I_MD_CLOSE_POPUP, interval=0.8)
             t.goto_page(pages.page_meta_demon_boss, skip_first_screenshot=False)
 
-    def fight(self, target):
+    def fight(self, target, stars):
         t = self.task
         if self.active_target != target:
-            t.cur_boss_type = BossType.SIX_STARS
+            t.cur_boss_type = BossType(stars)
             t._boss_generation += 1
             t._current_boss_attempts = 0
             self.active_target = target
@@ -484,6 +485,10 @@ class GhostAssistant:
             logger.warning('协助收到的鬼王截图无效')
             return
         template = cv2.cvtColor(portrait, cv2.COLOR_BGR2RGB)
+        stars = recognize_ticket_stars(template, (0, 0, template.shape[1], template.shape[0]), portrait=True)
+        if stars not in (4, 5, 6):
+            logger.warning('协助鬼王头像星级无法确认，暂不挑战')
+            return
         for swipe in (t.S_MD_SWIPE_UP, self.reverse):
             for _ in range(12):
                 if not self.within_limit() or self.link.target() != target:
@@ -495,7 +500,7 @@ class GhostAssistant:
                     self.link.confirm(target)
                     opened = self.open_row(area)
                     if not self.observe_settlement(target) and opened and self.link.target() == target:
-                        self.fight(target)
+                        self.fight(target, stars)
                     self.return_to_list()
                     return
                 t.swipe(swipe)
@@ -558,6 +563,8 @@ def run_offering(task, link):
 def run_assistance(task):
     settings = task.config.meta_demon.assistance_config
     offering = settings.role == AssistanceRole.OFFERING
+    if offering and not settings.offering_stars:
+        raise RequestHumanTakeover('请至少勾选一种上供鬼王星级：四星、五星或六星')
     if offering and not settings.friends:
         raise RequestHumanTakeover('鬼王上供需要填写分享好友名字')
     task.before_run()
