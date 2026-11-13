@@ -35,6 +35,8 @@ ExitMatcher = Union[Matcher | RecognizerLike | Page]
 BattleInspectionAction = Callable[["BattleContext"], None]
 PREPARE_CLICK_DELAY = 3.0
 QUICK_EXIT_WAIT_TIMEOUT = 5.0
+# 新战斗开始后，短时间内识别到的旧结算/退出画面都应视为上一场残留。
+MIN_BATTLE_RESULT_DELAY = 1.0
 
 
 @dataclass
@@ -115,6 +117,10 @@ class BattleContext:
     settlement_click_timer: Timer
     # 当前调用需要开启的 buff 配置；供 handler 和子类覆写逻辑直接读取。
     buff: Union[BuffClass | list[BuffClass] | None] = None
+    # 本场第一次稳定识别到 `page_battle` 的时间；用于过滤开战瞬间的旧画面。
+    battle_started_at: float | None = None
+    # 本场是否已经识别到有效的结算或奖励页；未知页面不能据此判负。
+    outcome_ready: bool = False
     # 最近一次稳定识别到的战斗页面；用于驱动连战和超时逻辑。
     last_page: Page | None = None
     # 单次调用内的连战轮次计数；首轮从 1 开始。
@@ -498,6 +504,8 @@ class GeneralBattle(GeneralBuff, GeneralBattleAssets):
         context.battle_timer = Timer(self._resolve_battle_timeout(config)).start()
         context.long_refresh_timer = Timer(180).start()
         context.last_page = None
+        context.battle_started_at = None
+        context.outcome_ready = False
         context.reward_no_battle_ts = None
         context.quick_exit = bool(config.quick_exit)
         context.quick_exit_timer = None
@@ -505,6 +513,7 @@ class GeneralBattle(GeneralBuff, GeneralBattleAssets):
         context.round_behavior_state = BattleBehaviorState()
         context.prepare_click_timer = Timer(self._next_prepare_click_delay())
         context.settlement_click_timer = Timer(self._next_settlement_click_interval())
+        context.is_win = False
 
     def _reset_timed_battle_inspection_timers(self, context: BattleContext) -> None:
         """统一重置当前 battle 生效巡检项的 timer。"""
@@ -640,6 +649,52 @@ class GeneralBattle(GeneralBuff, GeneralBattleAssets):
         settlement = {page_battle_result, page_reward}
         return page in settlement or context.last_page in settlement
 
+    def _mark_battle_started(self, context: BattleContext) -> None:
+        """记录本场战斗开始，并清除上一场残留的结算状态。
+
+        Args:
+            context: 当前战斗上下文对象。
+
+        Returns:
+            None: 直接原地更新 `context`。
+        """
+
+        if context.battle_started_at is None:
+            context.battle_started_at = time.time()
+            context.last_page = page_battle
+            logger.info("Battle start confirmed")
+
+        if context.outcome_ready:
+            logger.info("Clear previous battle outcome after new battle start")
+            context.outcome_ready = False
+            context.is_win = False
+        context.reward_no_battle_ts = None
+
+    @staticmethod
+    def _battle_age(context: BattleContext) -> float:
+        """返回本场自 `page_battle` 首次确认后的秒数。"""
+
+        if context.battle_started_at is None:
+            return 0.0
+        return time.time() - context.battle_started_at
+
+    def _is_current_battle_result_ready(self, context: BattleContext) -> bool:
+        """判断当前战斗是否已有可信的结算结果。"""
+
+        return (
+            context.outcome_ready
+            and context.battle_started_at is not None
+            and self._battle_age(context) >= MIN_BATTLE_RESULT_DELAY
+        )
+
+    def _can_record_current_battle_result(self, context: BattleContext) -> bool:
+        """判断结算页是否属于本场战斗，而不是开战瞬间的旧画面。"""
+
+        return (
+            context.battle_started_at is not None
+            and self._battle_age(context) >= MIN_BATTLE_RESULT_DELAY
+        )
+
     def _handle_prepare(self, context: BattleContext, config: GeneralBattleConfig) -> BattleAction:
         """处理准备页逻辑。
 
@@ -651,11 +706,17 @@ class GeneralBattle(GeneralBuff, GeneralBattleAssets):
             BattleAction: 当前轮准备页处理后的动作决策。
         """
         if context.last_page in {page_battle, page_battle_result, page_reward}:
-            if not config.continuous_battle:
-                return BattleAction.EXIT_WIN if context.is_win else BattleAction.EXIT_LOSE
-            action = self._handle_continuous_prepare(context, config)
-            if action != BattleAction.CONTINUE:
-                return action
+            if context.battle_started_at is None:
+                logger.info("Ignore stale battle state before current battle starts")
+                context.last_page = None
+                context.outcome_ready = False
+                context.is_win = False
+            elif self._is_current_battle_result_ready(context):
+                if not config.continuous_battle:
+                    return BattleAction.EXIT_WIN if context.is_win else BattleAction.EXIT_LOSE
+                action = self._handle_continuous_prepare(context, config)
+                if action != BattleAction.CONTINUE:
+                    return action
 
         if self.appear_then_click(self.I_DISABLE_7DAYS_DIFF_SOUL, interval=0.6):
             return BattleAction.CONTINUE
@@ -707,6 +768,10 @@ class GeneralBattle(GeneralBuff, GeneralBattleAssets):
             BattleAction: 当前轮结算页处理后的动作决策。
         """
         context.reward_no_battle_ts = None
+        if not self._can_record_current_battle_result(context):
+            logger.info("Ignore stale battle result before battle confirmation")
+            return BattleAction.CONTINUE
+        context.outcome_ready = True
         context.is_win = not self.appear(self.I_FALSE, threshold=0.8)
         if context.last_page != page_battle_result:
             self.device.click_record_clear()
@@ -724,6 +789,10 @@ class GeneralBattle(GeneralBuff, GeneralBattleAssets):
             BattleAction: 当前轮奖励页处理后的动作决策。
         """
         context.reward_no_battle_ts = None
+        if not self._can_record_current_battle_result(context):
+            logger.info("Ignore stale reward page before battle confirmation")
+            return BattleAction.CONTINUE
+        context.outcome_ready = True
         # TODO: 部分副本奖励界面不一定是战斗成功, 需要重写
         context.is_win = True
         self.appear_then_click(self.I_OVER_GHOST, interval=0.8)
@@ -746,8 +815,14 @@ class GeneralBattle(GeneralBuff, GeneralBattleAssets):
         Returns:
             BattleAction: 根据结算收尾状态推导出的动作决策。
         """
-        # 非连战且设置了退出检测器, 则根据退出检测器检测是否已经退出
-        if not config.continuous_battle and exit_matcher is not None and self._evaluate_exit_matcher(exit_matcher):
+        # Exit matcher 只能在识别到本场 page_battle 和有效结算页后参与判定。
+        # 开战瞬间的退出按钮、上一场结算页残留都可能让 matcher 提前命中。
+        if (
+            not config.continuous_battle
+            and exit_matcher is not None
+            and self._is_current_battle_result_ready(context)
+            and self._evaluate_exit_matcher(exit_matcher)
+        ):
             logger.info("Exit matcher hit")
             return BattleAction.EXIT_WIN if context.is_win else BattleAction.EXIT_LOSE
         # 上个页面还是战斗中的页面但此时是未知界面, 且奖励计时也未开启, 则认为当前是页面抖动继续战斗(式神助战...)
@@ -759,7 +834,10 @@ class GeneralBattle(GeneralBuff, GeneralBattleAssets):
             context.reward_no_battle_ts = time.time()
             return BattleAction.CONTINUE
         # 若超时则认为战斗已经结束
-        if time.time() - context.reward_no_battle_ts >= 2.5:
+        if (
+            time.time() - context.reward_no_battle_ts >= 2.5
+            and self._is_current_battle_result_ready(context)
+        ):
             return BattleAction.EXIT_WIN if context.is_win else BattleAction.EXIT_LOSE
         return BattleAction.CONTINUE
 
@@ -870,6 +948,8 @@ class GeneralBattle(GeneralBuff, GeneralBattleAssets):
                                              page_reward, include_global=False)
                 context.reward_no_battle_ts = None if page else context.reward_no_battle_ts
                 self._sync_prepare_click_timer(context, page)
+                if page == page_battle:
+                    self._mark_battle_started(context)
                 self._ensure_battle_stuck_guard(context, page)
                 if context.quick_exit and not self._in_settlement_stage(context, page):
                     action = BattleAction.QUICK_EXIT
