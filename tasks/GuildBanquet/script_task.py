@@ -16,43 +16,80 @@ import tasks.GuildBanquet.page as pages
 
 class ScriptTask(GameUi, GuildBanquetAssets):
 
+    def _banquet_flag_visible(self):
+        return self.appear(self.I_BANQUET_FLAG) or self.appear(self.I_BANQUET_FLAG_2)
+
+    def screenshot(self):
+        image = super().screenshot()
+        if not getattr(self, '_watching_banquet', False):
+            return image
+        # 宴会等待期间不将网络遮挡算作结束，也不因短时卡顿重启游戏。
+        waiting = False
+        while self.appear(self.I_NETWORK_ABNORMAL) or self.appear(self.I_NETWORK_ERROR):
+            if not waiting:
+                logger.warning('Guild banquet network stalled; wait for recovery')
+                waiting = True
+            self._banquet_missing_since = None
+            self.device.stuck_record_clear()
+            time.sleep(0.5)
+            super().screenshot()
+        return self.device.image
+
+    def _wait_banquet_flag(self) -> bool:
+        """返回标志是否仍在；仅在寮页面连续缺失超过五秒才返回 False。"""
+        self._banquet_missing_since = None
+        while True:
+            self.screenshot()
+            if self._banquet_flag_visible():
+                return True
+            current_page = self.get_current_page(fallback=True)
+            # 页面识别也可能刷新截图，必须再次检查最新画面。
+            if self._banquet_flag_visible():
+                return True
+            if current_page != pages.page_guild:
+                self._banquet_missing_since = None
+                logger.info('Guild banquet interrupted; navigate back to guild')
+                self.goto_page(pages.page_guild)
+            else:
+                now = time.monotonic()
+                if self._banquet_missing_since is None:
+                    self._banquet_missing_since = now
+                elif now - self._banquet_missing_since > 5:
+                    return False
+            self.device.stuck_record_clear()
+            time.sleep(0.5)
+
     def run(self):
         if not self.check_date(datetime.now()):
             logger.warning("GuildBanquet is not available now")
             self.set_next_run(task='GuildBanquet', server=False, target=self.get_next_dt(datetime.now()))
             raise TaskEnd
-        self.goto_page(pages.page_guild)
-        self.screenshot()
-        if not self.appear(self.I_BANQUET_FLAG):
-            self.set_next_run(task='GuildBanquet', server=False, target=self.get_next_dt(datetime.now()))
-            self.goto_page(pages.page_main)
-            raise TaskEnd
-        logger.info("Start guild banquet!")
-        self.device.stuck_record_clear()
-        max_wait_seconds = 660
-        wait_interval_seconds = 6
-        start_banquet_time = datetime.now()
-        exp_full_appeared = False
-        while True:
-            self.screenshot()
-            if datetime.now() - start_banquet_time > timedelta(seconds=max_wait_seconds):
-                logger.info('Guild banquet timeout, exit')
-                break
-            if not self.appear(self.I_BANQUET_FLAG):
-                logger.info("Guild banquet finished, exit")
-                break
-            logger.attr(f'{(datetime.now()-start_banquet_time).seconds}s',"Banquet ongoing, waiting...")
-            if self.config.guild_banquet.guild_banquet_config.auto_switch_shikigami:
-                if self.appear(self.I_BANQUET_EXP_FULL):
-                    # 连续第2次识别到满了则进行更换, 防止是动画过渡导致的误识别
-                    if exp_full_appeared:
-                        self.switch_shikigami()
-                    exp_full_appeared = True
-                else:
-                    exp_full_appeared = False
-            self.device.stuck_record_clear()
-            time.sleep(wait_interval_seconds)
-        self.set_next_run(task='GuildBanquet', server=False, target=self.get_next_dt(datetime.now(), True))
+        participated = False
+        self._watching_banquet = True
+        try:
+            self.goto_page(pages.page_guild)
+            wait_interval_seconds = 6
+            start_banquet_time = datetime.now()
+            exp_full_appeared = False
+            while self._wait_banquet_flag():
+                participated = True
+                logger.attr(f'{(datetime.now()-start_banquet_time).seconds}s',"Banquet ongoing, waiting...")
+                if self.config.guild_banquet.guild_banquet_config.auto_switch_shikigami:
+                    if self.appear(self.I_BANQUET_EXP_FULL):
+                        # 连续第2次识别到满了则进行更换, 防止是动画过渡导致的误识别
+                        if exp_full_appeared:
+                            self.switch_shikigami()
+                        exp_full_appeared = True
+                    else:
+                        exp_full_appeared = False
+                self.device.stuck_record_clear()
+                time.sleep(wait_interval_seconds)
+        finally:
+            self._watching_banquet = False
+        logger.info('Guild banquet finished' if participated else 'Guild banquet not started; schedule retry')
+        # 只传目标时间，避免通用调度器取成功间隔和目标时间中较早的一个。
+        self.set_next_run(task='GuildBanquet', server=False,
+                          target=self.get_next_dt(datetime.now(), success=participated))
         self.goto_page(pages.page_main)
         raise TaskEnd
 
