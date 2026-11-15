@@ -1,5 +1,7 @@
 """超鬼王门票刷取，复用觉醒和探索的战斗流程。"""
 from datetime import datetime
+import time
+from module.exception import GameStuckError
 from cached_property import cached_property
 
 from module.logger import logger
@@ -11,7 +13,7 @@ from tasks.Exploration.config import (
     UpType, UserStatus as ExplorationUserStatus,
 )
 from tasks.Exploration.script_task import ScriptTask as ExplorationTask
-from tasks.GameUi.default_pages import page_reward
+from tasks.GameUi.default_pages import page_reward, handle_battle_reward_page
 import tasks.GameUi.page as pages
 from tasks.MetaDemonTicket.config import TicketMode, ExplorationTarget
 from tasks.MetaDemon.assets import MetaDemonAssets
@@ -82,6 +84,20 @@ class TicketRewardMixin:
     def _handle_reward(self, context, config):
         self.check_ticket_reward()
         return super()._handle_reward(context, config)
+
+    def finish_ticket_farming(self):
+        """Drain the last reward animation before navigating with the farming task."""
+        self._ticket_farming_complete = True
+        deadline = time.monotonic() + 30
+        while True:
+            self.screenshot()
+            if self.get_current_page() != page_reward:
+                break
+            if time.monotonic() >= deadline:
+                raise GameStuckError('门票刷取结束后奖励页未退出')
+            handle_battle_reward_page(self)
+            self.device.sleep(0.8)
+        self.goto_page(pages.page_main)
 
     def install_ticket_reward_hook(self):
         reward = self.navigator.resolve_page(page_reward)
@@ -259,8 +275,8 @@ def run_ticket_farming(owner, mode) -> bool:
         runner._ticket_farming_complete = True
         if cooperation_started:
             runtime.notify_task_completion('MetaDemonTicket', peer, 'tickets_full' if result else 'ticket_finished')
-        if cooperation_started or (not peer and role != ExplorationUserStatus.ALONE) or buff_opened:
-            runner.goto_page(pages.page_main)
+        if result or cooperation_started or (not peer and role != ExplorationUserStatus.ALONE) or buff_opened:
+            runner.finish_ticket_farming()
         if buff_opened:
             runner.open_buff()
             runner.awake(is_open=False)
