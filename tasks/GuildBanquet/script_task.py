@@ -136,9 +136,11 @@ class ScriptTask(GameUi, GuildBanquetAssets):
             target_date = (now + timedelta(days=days_ahead)).date()
             target_dt = datetime.combine(target_date, target_time)
             if days_ahead == 0:
+                if success:
+                    return target_dt + timedelta(days=7)
                 if now < target_dt:
                     return target_dt
-                if success or now >= target_dt + timedelta(hours=1):
+                if now >= target_dt + timedelta(hours=1):
                     return target_dt + timedelta(days=7)
                 if now <= target_dt + timedelta(hours=1):  # 1小时内则自动加上失败间隔
                     return now + scheduler.failure_interval
