@@ -211,29 +211,35 @@ class GhostOffering:
         return False
 
     def select_friends(self):
+        """Configured names are OCR aliases: select one uniquely matched row."""
         t = self.task
-        wanted = {self.normalize_name(name): name for name in self.settings.friends}
+        wanted = dict.fromkeys(self.normalize_name(name) for name in self.settings.friends)
+        wanted.pop('', None)
         if not wanted:
             return False
+
+        def select_visible():
+            rows = self.friend_rows()
+            matches = [name for name in wanted if name in rows]
+            if any(len(rows[name]) != 1 for name in matches):
+                logger.warning('候选好友名字出现重复识别结果，停止本次分享')
+                return False
+            if not matches:
+                return None
+            name = matches[0]
+            return self.select_friend(name, rows[name][0])
+
         t.screenshot()
         if not t.appear(t.I_MD_INVITE_FRIENDS) or self.selected_count():
             logger.warning('分享列表存在已有选择或已关闭，请清空好友选择后重试')
             return False
-        rows = self.friend_rows()
-        # All recipients are already visible. Avoid moving away from their rows.
-        if wanted.keys() <= rows.keys():
-            for name in wanted:
-                rows = self.friend_rows()
-                if len(rows.get(name, ())) != 1 or not self.select_friend(name, rows[name][0]):
-                    return False
-            return True
+        matched = select_visible()
+        if matched is not None:
+            return matched
         if not self.list_to_top():
             return False
-        # Inspect the whole list before selecting, so stale selections cannot
-        # silently include an unconfigured recipient on an off-screen row.
         previous = None
         stable = 0
-        available = set()
         for _ in range(30):
             if not self.within_limit():
                 return False
@@ -241,46 +247,16 @@ class GhostOffering:
             if not t.appear(t.I_MD_INVITE_FRIENDS) or self.selected_count():
                 logger.warning('分享列表存在已有选择或已关闭，请清空好友选择后重试')
                 return False
-            rows = self.friend_rows()
-            if any(len(rows.get(name, [])) > 1 for name in wanted):
-                logger.warning('好友名字有多个相同识别结果，无法唯一选择')
-                return False
-            available.update(rows)
-            signature = tuple(rows)
+            matched = select_visible()
+            if matched is not None:
+                return matched
+            signature = tuple(self.friend_rows())
             stable = stable + 1 if signature == previous else 0
             if stable >= 2:
                 break
             previous = signature
             t.swipe(t.S_MD_SWIPE_FRIEND_UP, interval=1.2)
-        else:
-            logger.warning('好友列表扫描超过限制，停止分享')
-            return False
-        missing = wanted.keys() - available
-        if missing:
-            logger.warning('未找到指定好友: ' + '; '.join(wanted[name] for name in missing))
-            return False
-        if not self.list_to_top():
-            return False
-        remaining = dict(wanted)
-        for _ in range(30):
-            if not self.within_limit():
-                return False
-            t.screenshot()
-            if not t.appear(t.I_MD_INVITE_FRIENDS):
-                return False
-            rows = self.friend_rows()
-            for name in tuple(remaining):
-                # Selection can reorder rows; resolve each subsequent name on
-                # the latest screenshot instead of reusing an earlier box.
-                rows = self.friend_rows()
-                if name not in rows:
-                    continue
-                if len(rows[name]) != 1 or not self.select_friend(remaining[name], rows[name][0]):
-                    return False
-                del remaining[name]
-            if not remaining:
-                return True
-            t.swipe(t.S_MD_SWIPE_FRIEND_UP, interval=1.2)
+        logger.warning('未找到任何候选好友名字，停止本次分享')
         return False
 
     def share(self):
@@ -304,7 +280,7 @@ class GhostOffering:
                 t.appear_then_click(t.I_MD_CLOSE_POPUP, interval=0.8)
                 logger.info('协助端已识别分享鬼王，等待好友击杀')
                 return True
-            if not select_recipients and self.selected_count() != len(self.settings.friends):
+            if not select_recipients and self.selected_count() != 1:
                 logger.warning('邀请重试前好友选中状态已变化，停止本次上供')
                 return False
             if not t.appear_then_click(t.I_MD_INVITE_FRIENDS, interval=self.INVITE_RETRY_SECONDS):

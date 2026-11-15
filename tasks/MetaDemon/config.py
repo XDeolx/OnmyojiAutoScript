@@ -227,7 +227,7 @@ class MetaDemonAssistanceConfig(ConfigBase):
         ) if enabled)
 
     friend_names: str = Field(default='', title='分享好友名字',
-        description='填写游戏内好友完整名字；多个名字用分号或换行分隔，按名称精确匹配，不使用近似名字。')
+        description='填写同一好友的完整名字或可能的 OCR 识别结果；多个候选用英文分号、中文分号或换行分隔。命中任意一个候选即选中一位好友并邀请，无需全部命中；不进行模糊或子串匹配。')
     poll_interval: int = Field(default=5, ge=2, le=60, title='协助轮询间隔（秒）',
         description='上供按此间隔检查是否已击杀，协助按此间隔重新寻找好友分享。')
 
