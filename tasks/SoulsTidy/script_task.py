@@ -5,7 +5,7 @@ from time import sleep
 from datetime import timedelta, datetime, time
 from cached_property import cached_property
 
-from module.exception import TaskEnd
+from module.exception import TaskEnd, GameStuckError
 from module.logger import logger
 from module.base.timer import Timer
 
@@ -97,16 +97,7 @@ class ScriptTask(GameUi, SoulsTidyAssets):
                 continue
         if self.config.souls_tidy.simple_tidy.enable_maneki:
             logger.hr('Enter bongna')
-            # 确保已弃置界面
-            while True:
-                self.screenshot()
-                if self.appear(self.I_ST_ABANDONED_SELECTED):
-                    break
-                # 防止因为好友消息导致误点击到好友聊天界面
-                if self.appear(self.I_UI_BACK_RED):
-                    self.click(self.I_UI_BACK_RED, interval=0.8)
-                    continue
-                self.click(self.I_ST_ABANDONED_SELECTED, interval=1.5)
+            self.ensure_abandoned_selected()
             self.pre_confirm()
             # 开始奉纳
             while True:
@@ -128,6 +119,26 @@ class ScriptTask(GameUi, SoulsTidyAssets):
                 logger.info('Donate one')
 
         logger.info('Bongna done')
+
+    def ensure_abandoned_selected(self):
+        """Verify the selected tab without clicking through a message overlay."""
+        deadline = Timer(20).start()
+        attempts = 0
+        while not deadline.reached():
+            self.screenshot()
+            if self.appear(self.I_ST_ABANDONED_SELECTED):
+                return
+            if self.appear_then_click(self.I_UI_BACK_RED, interval=0.8):
+                continue
+            if not self.appear(self.I_ST_CAT):
+                sleep(0.3)
+                continue
+            if attempts >= 5:
+                break
+            if self.click(self.I_ST_ABANDONED_SELECTED, interval=1.5):
+                attempts += 1
+            sleep(0.3)
+        raise GameStuckError('御魂奉纳未能确认已弃置筛选，停止操作以避免误奉纳')
 
     def pre_confirm(self):
         """前置确认：确保是按照等级来排序的"""
