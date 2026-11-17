@@ -29,6 +29,15 @@ def recognize_ticket_stars(image, area, *, synthesis=False, portrait=False) -> i
     # for lit stars while tolerating small background contamination in empty
     # slots; keep the ticket/synthesis thresholds unchanged.
     empty_max, lit_min = (0.18, 0.40) if portrait else (0.08, 0.24)
+    if portrait:
+        # Gold portrait backgrounds can contaminate an unlit slot. Only resolve
+        # an ambiguous slot as empty when most of it is the grey magatama;
+        # never lower the evidence required for a lit star.
+        grey = cv2.inRange(strip, (0, 0, 65), (179, 74, 200))
+        grey_values = [float(np.mean(grey[:, center - 3:center + 3] > 0))
+                       for center in centers]
+        values = [0.0 if empty_max < value < lit_min and grey_value >= 0.5 else value
+                  for value, grey_value in zip(values, grey_values)]
     if any(empty_max < value < lit_min for value in values):
         return None
     illuminated = [value >= lit_min for value in values]
