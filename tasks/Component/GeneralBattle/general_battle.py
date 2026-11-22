@@ -927,6 +927,7 @@ class GeneralBattle(GeneralBuff, GeneralBattleAssets):
         buff: Union[BuffClass | list[BuffClass]] = None,
         battle_key: str = "default",
         exit_matcher: ExitMatcher | None = None,
+        battle_confirmed: bool = False,
     ) -> bool:
         """
         运行基于 Page FSM 的通用战斗。
@@ -934,6 +935,7 @@ class GeneralBattle(GeneralBuff, GeneralBattleAssets):
         Args:
             config: 当前通用战斗配置；为空时使用默认配置。
             buff: 本轮战斗需要开启的 buff 配置。
+            battle_confirmed: 调用方已识别到本场战斗页，保留该证据而不重新识别。
             battle_key: 战斗类型分组键；同 key 共享 `BATTLE_KEY` 作用域行为状态。
             exit_matcher: 本次调用专用的结束识别条件。
                 优先级高于 `_exit_matcher()`；适合同一任务不同入口回不同页面的场景。
@@ -956,7 +958,11 @@ class GeneralBattle(GeneralBuff, GeneralBattleAssets):
         self._battle_context = context
         resolved_exit_matcher = exit_matcher if exit_matcher is not None else self._exit_matcher()
         try:
-            self._inherit_current_battle_frame(context)
+            if battle_confirmed:
+                logger.info('Battle entry confirmed by caller')
+                self._mark_battle_started(context)
+            else:
+                self._inherit_current_battle_frame(context)
             while True:
                 self.screenshot()
                 self._tick_long_battle(context)

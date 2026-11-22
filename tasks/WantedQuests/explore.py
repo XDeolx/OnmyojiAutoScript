@@ -50,8 +50,8 @@ class WQExplore(ExplorationScriptTask, HighLight):
                 self._explor_cnt += 1
         return arrived_end
 
-    def run_on_battle(self):
-        super().run_on_battle()
+    def run_on_battle(self, battle_confirmed: bool = False):
+        super().run_on_battle(battle_confirmed=battle_confirmed)
         # Count the chapter only after returning from battle, not on entry.
         if self.fire_monster_type == 'boss':
             self._explor_cnt += 1

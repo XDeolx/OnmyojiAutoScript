@@ -37,7 +37,7 @@ class ScriptTask(BaseExploration):
             pages.page_exp_entrance: self.run_on_exp_entrance,
             pages.page_exploration: self.run_on_exp,
             pages.page_battle_prepare: self.run_on_battle,
-            pages.page_battle: self.run_on_battle,
+            pages.page_battle: lambda: self.run_on_battle(battle_confirmed=True),
             pages.page_battle_result: self.run_on_battle,
             pages.page_reward: lambda: self.click(pages.reward_random_click(), interval=0.8),
             pages.page_battle_team: self.run_on_battle_team
@@ -139,8 +139,10 @@ class ScriptTask(BaseExploration):
                 self.check_then_accept()
                 self.device.stuck_record_clear()
 
-    def run_on_battle(self):
-        self.run_general_battle(self._config.general_battle_config, exit_matcher=pages.page_exp_main)
+    def run_on_battle(self, battle_confirmed: bool = False):
+        self.run_general_battle(self._config.general_battle_config,
+                                exit_matcher=pages.page_exp_main,
+                                battle_confirmed=battle_confirmed)
         self._match_end.refresh()  # 防止同一张图多次打怪导致误以为探索结束
         self.wait_start_time = datetime.now()  # 队友等待时间重置
 
