@@ -19,6 +19,11 @@ class ChessBattleNavigationMixin:
         threshold=0.8, method='Template matching',
         file='./tasks/GameUi/page/page_chess_rank_up.png')
 
+    I_CHESS_RANK_HALO = RuleImage(
+        roi_front=(305, 165, 120, 80), roi_back=(100, 145, 500, 140),
+        threshold=0.8, method='Template matching',
+        file='./tasks/GameUi/page/page_chess_rank_halo.png')
+
     CHESS_EXIT_TIMEOUT = 60.0
     CHESS_EXIT_SCREENSHOT_INTERVAL = 0.35
 
@@ -28,6 +33,7 @@ class ChessBattleNavigationMixin:
             self.appear(self.I_CHESS_EXIT_TO_LOBBY)
             or self.appear(self.I_CHESS_EXIT_TO_LOBBY_2)
             or self.appear(self.I_CHESS_SHARE)
+            or self.appear(self.I_CHESS_RANK_HALO)
             or self.appear(self.I_CHESS_RANK_UP)
             or self.appear(self.I_CHECK_CHESS_RANK)
             or self.appear(self.I_CHESS_RANK_GOTO_LOBBY)
@@ -44,6 +50,9 @@ class ChessBattleNavigationMixin:
         deadline = time.monotonic() + self.CHESS_EXIT_TIMEOUT
         next_click = 0.0
         clicks = 0
+        result_seen = False
+        unknown_since = None
+        fallback_clicks = 0
         while time.monotonic() < deadline:
             self.screenshot()
             if self.appear(self.I_CHECK_CHESS):
@@ -58,12 +67,26 @@ class ChessBattleNavigationMixin:
                         break
                 if target is None and (
                     self.appear(self.I_CHESS_SHARE)
+                    or self.appear(self.I_CHESS_RANK_HALO)
                     or self.appear(self.I_CHESS_RANK_UP)
                     or self.appear(self.I_CHECK_CHESS_RANK)
                     or self.appear(self.I_UI_REWARD)
                     or self.appear(self.I_UI_REWARD_NEW)
                 ):
                     target = GeneralBattleAssets.C_RANDOM_LEFT
+                if target is not None:
+                    result_seen = True
+                    unknown_since = None
+                elif result_seen and fallback_clicks < 3:
+                    # Rank-point changes can omit both the rank-up title and
+                    # all buttons. Only advance after a recognized result page.
+                    if unknown_since is None:
+                        unknown_since = time.monotonic()
+                    elif time.monotonic() - unknown_since >= 3:
+                        logger.warning('Chess result transition unrecognized; bounded safe click')
+                        target = GeneralBattleAssets.C_RANDOM_LEFT
+                        fallback_clicks += 1
+                        unknown_since = time.monotonic()
                 if target is not None:
                     if clicks >= 12:
                         raise GameStuckError('Chess login recovery click limit reached')
@@ -95,6 +118,7 @@ class ChessBattleNavigationMixin:
                 return True
 
             rank_page = (self.appear(self.I_CHECK_CHESS_RANK)
+                         or self.appear(self.I_CHESS_RANK_HALO)
                          or self.appear(self.I_CHESS_RANK_UP))
             rank_button = self.appear(self.I_CHESS_RANK_GOTO_LOBBY)
             if rank_page or rank_button:

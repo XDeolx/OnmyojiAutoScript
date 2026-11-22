@@ -1135,6 +1135,12 @@ class ChessHandOperationsMixin:
         if self.equip_hakuzosu_protect_after_deploy(verified_names):
             equipped.append(self.HAKUZOSU_PROTECT_NAME)
         repeated_attempts = {}
+        round_no = getattr(self, '_current_round_no', None)
+        if getattr(self, '_soul_failure_round', None) != round_no:
+            self._soul_failure_round = round_no
+            self._soul_failed_targets = Counter()
+        if not hasattr(self, '_soul_failed_targets'):
+            self._soul_failed_targets = Counter()
         target_failures = Counter()
         for _ in range(self.SOUL_EQUIP_SAFETY_LIMIT):
             if not self._is_preparation_mode():
@@ -1159,6 +1165,9 @@ class ChessHandOperationsMixin:
                     candidate['category'],
                     verified_names,
                 ):
+                    failure_key = (candidate['name'], target[0])
+                    if self._soul_failed_targets[failure_key] >= 2:
+                        continue
                     attempt_key = (
                         candidate['name'],
                         candidate['position'][0] // 20,
@@ -1207,6 +1216,7 @@ class ChessHandOperationsMixin:
                 card['name'] for card in self._soul_hand_cards()
             )
             if not confirmed:
+                self._soul_failed_targets[(selected['name'], set_index)] += 1
                 attempts = repeated_attempts[
                     (
                         selected['name'],
@@ -1252,6 +1262,9 @@ class ChessHandOperationsMixin:
                     )
                 continue
 
+            self._soul_failed_targets.pop((selected['name'], set_index), None)
+            self.device.click_record_remove(
+                f"CHESS_EQUIP_SOUL_{selected['name'].upper()}_SET_{set_index}")
             target_failures.pop(target_name, None)
             if not self._record_shikigami_soul(
                 target_name,

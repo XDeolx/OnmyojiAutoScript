@@ -103,4 +103,40 @@ class ChessGuardsTest(unittest.TestCase):
         self.assertTrue(buy(Fake(), 1, object(), 'unit'))
         self.assertEqual(actions, ['buy', 'cleanup', 'buy'])
 
+    def test_unknown_points_page_after_share_uses_safe_fallback(self):
+        clock = [0.0]
+        pages = ['share', 'unknown_points', 'rank', 'lobby']
+        clicks = []
+        class Fake:
+            CHESS_EXIT_TIMEOUT = 60
+            CHESS_EXIT_SCREENSHOT_INTERVAL = 0.35
+            def __getattr__(self, name): return name
+            def screenshot(self): pass
+            def appear(self, rule):
+                return rule == {'share': 'I_CHESS_SHARE', 'unknown_points': None,
+                                'rank': 'I_CHESS_RANK_GOTO_LOBBY', 'lobby': 'I_CHECK_CHESS'}[pages[0]]
+            def click(self, rule):
+                clicks.append(rule)
+                pages.pop(0)
+        env = {'time': SimpleNamespace(monotonic=lambda: clock[0],
+                   sleep=lambda duration: clock.__setitem__(0, clock[0]+duration)),
+               'logger': SimpleNamespace(warning=lambda _: None),
+               'GeneralBattleAssets': SimpleNamespace(C_RANDOM_LEFT='safe'), 'GameStuckError': RuntimeError}
+        self.assertTrue(load_method(NAV, '_return_to_chess_lobby_strict', env)(Fake()))
+        self.assertEqual(clicks, ['safe', 'safe', 'I_CHESS_RANK_GOTO_LOBBY'])
+
+    def test_unknown_start_never_blind_clicks(self):
+        clock = [0.0]
+        fake = SimpleNamespace(CHESS_EXIT_TIMEOUT=10, CHESS_EXIT_SCREENSHOT_INTERVAL=1,
+                               screenshot=lambda: None, appear=lambda _: False,
+                               click=lambda _: self.fail('blind click'))
+        for name in ['I_CHECK_CHESS', 'I_CHESS_RANK_GOTO_LOBBY', 'I_CHESS_EXIT_TO_LOBBY',
+                     'I_CHESS_EXIT_TO_LOBBY_2', 'I_CHESS_SHARE', 'I_CHESS_RANK_HALO', 'I_CHESS_RANK_UP',
+                     'I_CHECK_CHESS_RANK', 'I_UI_REWARD', 'I_UI_REWARD_NEW']:
+            setattr(fake, name, name)
+        env = {'time': SimpleNamespace(monotonic=lambda: clock[0],
+                   sleep=lambda duration: clock.__setitem__(0, clock[0]+duration)), 'GameStuckError': RuntimeError}
+        with self.assertRaises(RuntimeError):
+            load_method(NAV, '_return_to_chess_lobby_strict', env)(fake)
+
 if __name__ == '__main__': unittest.main()
