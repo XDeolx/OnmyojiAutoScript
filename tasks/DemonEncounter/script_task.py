@@ -91,8 +91,10 @@ class ScriptTask(GameUi, GeneralBattle, DemonEncounterAssets, SwitchSoul):
                     # 没找到boss但地图中央出现宝箱，导致点击宝箱出现50勾玉购买界面
                     self.ui_click_until_smt_disappear(self.I_DE_FIND, self.I_JADE_50, interval=1)
                     continue
-                if find_btn_clicked and self.click(self.C_DM_BOSS_CLICK, interval=5):
-                    find_btn_clicked = False
+                if (find_btn_clicked and self.appear(self.I_DE_LOCATION)
+                        and self.click(self.C_DM_BOSS_CLICK, interval=5)):
+                    # Map movement may swallow the first click. Keep retrying
+                    # until a challenge dialog is actually detected.
                     continue
                 if self.best_demon_enable:
                     self.device.click_record_clear()
@@ -380,23 +382,37 @@ class ScriptTask(GameUi, GeneralBattle, DemonEncounterAssets, SwitchSoul):
             if self.click(target_click, interval=1):
                 continue
         logger.info('Question answering Start')
-        for i in range(1, 4):
-            # 还未测试题库无法识别的情况
+        i = 0
+        while True:
+            self.screenshot()
+            if self.ui_reward_appear_click():
+                time.sleep(0.5)
+                continue
+            if not self.appear(self.I_LETTER_CLOSE):
+                time.sleep(1.8)
+                self.screenshot()
+                if not self.appear(self.I_LETTER_CLOSE):
+                    logger.info('Answer finish')
+                    return
+                continue
+            i += 1
             logger.hr(f'Answer {i}', 3)
             answer_click = answer()
             while 1:
                 self.screenshot()
                 if self.ui_reward_appear_click():
-                    time.sleep(0.5)
+                    # Both old and new reward overlays must finish before OCR
+                    # reads the next question. A single absent frame can be an
+                    # animation transition, so require a quiet interval.
+                    reward_clear = Timer(1.5).start()
                     while 1:
                         self.screenshot()
-                        # 等待动画结束
-                        if not self.appear(self.I_UI_REWARD, threshold=0.6):
+                        if self.ui_reward_appear_click():
+                            reward_clear.reset()
+                            continue
+                        if reward_clear.reached():
                             logger.info('Get reward success')
                             break
-                        # 一直点击
-                        if self.ui_reward_appear_click():
-                            continue
                     break
                 # 如果没有出现红色关闭按钮，说明答题结束
                 if not self.appear(self.I_LETTER_CLOSE):
