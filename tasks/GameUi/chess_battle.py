@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import time
 
+from module.atom.image import RuleImage
+
 from module.exception import GameStuckError
 from module.logger import logger
 from tasks.Component.GeneralBattle.assets import GeneralBattleAssets
@@ -11,6 +13,11 @@ from tasks.Component.GeneralBattle.assets import GeneralBattleAssets
 
 class ChessBattleNavigationMixin:
     """让所有继承 GameUi 的任务都能退出遗留的百鬼棋局。"""
+
+    I_CHESS_RANK_UP = RuleImage(
+        roi_front=(365, 280, 325, 69), roi_back=(345, 260, 365, 109),
+        threshold=0.8, method='Template matching',
+        file='./tasks/GameUi/page/page_chess_rank_up.png')
 
     CHESS_EXIT_TIMEOUT = 60.0
     CHESS_EXIT_SCREENSHOT_INTERVAL = 0.35
@@ -21,6 +28,7 @@ class ChessBattleNavigationMixin:
             self.appear(self.I_CHESS_EXIT_TO_LOBBY)
             or self.appear(self.I_CHESS_EXIT_TO_LOBBY_2)
             or self.appear(self.I_CHESS_SHARE)
+            or self.appear(self.I_CHESS_RANK_UP)
             or self.appear(self.I_CHECK_CHESS_RANK)
             or self.appear(self.I_CHESS_RANK_GOTO_LOBBY)
         )
@@ -50,6 +58,7 @@ class ChessBattleNavigationMixin:
                         break
                 if target is None and (
                     self.appear(self.I_CHESS_SHARE)
+                    or self.appear(self.I_CHESS_RANK_UP)
                     or self.appear(self.I_CHECK_CHESS_RANK)
                     or self.appear(self.I_UI_REWARD)
                     or self.appear(self.I_UI_REWARD_NEW)
@@ -85,7 +94,8 @@ class ChessBattleNavigationMixin:
                 logger.debug('Global Chess result flow: lobby reached from rank page')
                 return True
 
-            rank_page = self.appear(self.I_CHECK_CHESS_RANK)
+            rank_page = (self.appear(self.I_CHECK_CHESS_RANK)
+                         or self.appear(self.I_CHESS_RANK_UP))
             rank_button = self.appear(self.I_CHESS_RANK_GOTO_LOBBY)
             if rank_page or rank_button:
                 rank_recovery_started = True

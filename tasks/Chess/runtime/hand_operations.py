@@ -27,6 +27,11 @@ from tasks.Chess.strategy.shikigami_catalog import (
 class ChessHandOperationsMixin:
     """Internal mixin; use through ``ScriptTask`` only."""
 
+    I_HAND_FULL_NOTICE = RuleImage(
+        roi_front=(558, 492, 170, 29), roi_back=(530, 475, 225, 65),
+        threshold=0.8, method='Template matching',
+        file='./tasks/Chess/resource/hand_full_notice.png')
+
     def _shikigami_attributes(
         self,
         name: str,
@@ -131,12 +136,20 @@ class ChessHandOperationsMixin:
 
     def _wait_hand_card_removed(self, count_before: int, count_cards) -> bool:
         """按新截图确认手牌数量减少，处理误开的详情页，不固定空等。"""
+        stable_frames = 0
         def removed():
+            nonlocal stable_frames
             if self.close_shikigami_specifics_if_open():
+                stable_frames = 0
                 return False
-            return count_cards() < count_before
+            stable_frames = stable_frames + 1 if count_cards() < count_before else 0
+            return stable_frames >= 3
 
-        return self._wait_chess_action_state(removed)
+        confirmed = self._wait_chess_action_state(removed)
+        if confirmed:
+            # Confirmed progress must not accumulate as repeated failed clicks.
+            self.device.click_record_remove('CHESS_SELL_UNKNOWN_HAND_CARD')
+        return confirmed
 
     def close_shikigami_specifics_if_open(self) -> bool:
         """卖卡/上卡误打开式神详情页时，点击安全区域直到关闭。"""
@@ -1489,6 +1502,9 @@ class ChessHandOperationsMixin:
 
     def _hand_capacity_count(self) -> int:
         """容量只扫描式神/特殊卡锚点与御魂图片，不识别式神身份。"""
+        if self.appear(self.I_HAND_FULL_NOTICE):
+            logger.info('Chess hand capacity: game reports full')
+            return 10
         image = self.device.image
         candidates = []
         for frame, kind in ((self.F_HAND_CARD, 'card'), (self.F_FETTER_BADGE, 'emblem')):
@@ -1684,7 +1700,7 @@ class ChessHandOperationsMixin:
                     continue
                 result = self.classify_hand_card(card_roi)
                 keep = (
-                    (result.get('source') == 'frame' and result['type'] == 'unknown')
+                    result['type'] == 'unknown'
                     or result['type'] in ('soul', 'discovery', 'duplicator')
                     or (
                         result['type'] == 'shikigami'
@@ -1822,6 +1838,22 @@ class ChessHandOperationsMixin:
             'sold_non_lineup': sold,
         }
 
+    def _sell_unassignable_soul_if_full(self) -> dict | None:
+        if self._hand_capacity_count() < 10:
+            return {'type': 'space'}
+        verified = set(getattr(self, '_board_lineup_names', set())) & set(self.shikigami_deploy_positions)
+        cards = self._soul_hand_cards()
+        if any(self._soul_targets(card['name'], card['category'], verified) for card in cards):
+            return {'type': 'blocked_soul'}
+        for card in cards:
+            before = self._hand_card_identity_count('soul', card['name'])
+            self.sell_hand_card(card['position'])
+            if self._wait_hand_card_removed(
+                    before, lambda: self._hand_card_identity_count('soul', card['name'])):
+                return {'type': 'soul', 'name': card['name']}
+            return {'type': 'blocked_soul'}
+        return None
+
     def _free_one_hand_slot_for_purchase(
         self,
         sell_lineup: bool = False,
@@ -1831,7 +1863,9 @@ class ChessHandOperationsMixin:
             if not self._ensure_shop_closed(allowed_modes=('备', '战')):
                 return None
             self.screenshot()
-            result = self.sell_one_lineup_hand_card()
+            result = self._sell_unassignable_soul_if_full()
+            if result is None:
+                result = self.sell_one_lineup_hand_card()
             if result is None:
                 return None
         else:
@@ -1841,14 +1875,19 @@ class ChessHandOperationsMixin:
             if not result.get('equipped') and not result.get('sold_non_lineup'):
                 logger.info(
                     'Emergency Chess cleanup freed no hand space; '
-                    'sell one lineup card before retrying purchase'
+                    'try unassignable souls before lineup cards'
                 )
                 if not self._is_hand_cleanup_allowed(('备', '战')):
                     return None
                 self.screenshot()
-                result = self.sell_one_lineup_hand_card()
+                result = self._sell_unassignable_soul_if_full()
+                if result is None:
+                    result = self.sell_one_lineup_hand_card()
                 if result is None:
                     return None
+
+        if result.get('type') == 'blocked_soul':
+            return None
 
         # Verify actual capacity, not just a successful equip/sell action.
         for _ in range(2):
@@ -2078,6 +2117,7 @@ class ChessHandOperationsMixin:
             )
             return None
 
+        cleanup_attempted = False
         player_positions = set(
             getattr(self, '_player_deployed_positions', set())
         )
@@ -2105,9 +2145,23 @@ class ChessHandOperationsMixin:
             for attempt in range(1, self.ACTION_ICON_MAX_ATTEMPTS + 1):
                 if self._resolve_pending_discovery():
                     return None
-                if self._hand_capacity_count() >= 10:
-                    logger.info('Pause Chess system-card recall: hand is full, no room for recalled card')
+                if not self._is_preparation_mode():
+                    logger.info('Stop Chess recall: preparation phase ended')
                     return None
+                if self._hand_capacity_count() >= 10:
+                    if cleanup_attempted:
+                        logger.info('Pause Chess recall: hand remains full after cleanup')
+                        return None
+                    cleanup_attempted = True
+                    if self.emergency_cleanup_hand() is None:
+                        return None
+                    self.screenshot()
+                    if not self._is_preparation_mode() or self._hand_capacity_count() >= 10:
+                        logger.info('Pause Chess recall: cleanup did not confirm free space')
+                        return None
+                    # Cleanup can change the board; recheck before dragging.
+                    if not self._board_set_has_shikigami(set_index):
+                        return set_index
                 drag_source = (
                     source
                     if attempt == 1

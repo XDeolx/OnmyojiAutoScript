@@ -340,9 +340,6 @@ class ChessEconomyMixin:
                 )
                 return False
             hand_count = self._hand_capacity_count()
-            if hand_count > 10:
-                logger.warning(f'Cancel Chess purchase: invalid hand count={hand_count}; do not sell cards')
-                return False
             if hand_count >= 10:
                 logger.info(f'Chess hand full before purchase: count={hand_count}/10; clear space first')
                 if emergency_cleanup_done and lineup_sale_done:
@@ -353,6 +350,9 @@ class ChessEconomyMixin:
                 if recovery is None:
                     return False
                 emergency_cleanup_done = True
+                deadline = time.monotonic() + self.SHOP_BUY_TIMEOUT
+                current_match = self._recognize_shop_slot(
+                    slot_index, click_rule, expected_name=matched_name)
                 if sell_lineup or recovery.get('type') == 'lineup':
                     lineup_sale_done = True
                 continue
@@ -383,8 +383,18 @@ class ChessEconomyMixin:
                 self.device.click_record_remove(click_rule)
                 self._blocked_hand_purchases.discard(blocked_key)
                 return True
-            # An unconfirmed purchase is not evidence that another card must
-            # be sold. Leave this slot alone until the next round.
+            # A purchase can reveal the game's full-hand notice even when
+            # overlapping cards were undercounted before the click.
+            if self._hand_capacity_count() >= 10 and not emergency_cleanup_done:
+                recovery = self._free_one_hand_slot_for_purchase()
+                emergency_cleanup_done = True
+                if recovery is not None:
+                    deadline = time.monotonic() + self.SHOP_BUY_TIMEOUT
+                    current_match = self._recognize_shop_slot(
+                        slot_index, click_rule, expected_name=matched_name)
+                    continue
+            # Without explicit full-hand evidence, do not sell cards merely
+            # because a purchase was unconfirmed.
             logger.warning(f'Chess purchase unconfirmed; defer slot={slot_index}, name={matched_name} until next round')
             return False
         logger.warning(
