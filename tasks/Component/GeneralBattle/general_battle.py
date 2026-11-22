@@ -127,6 +127,7 @@ class BattleContext:
     continuous_count: int = 1
     # 结算结束后暂时识别不到战斗页面时的首个时间戳；用于 x 秒兜底。
     reward_no_battle_ts: float | None = None
+    unconfirmed_settlement_ts: float | None = None
     # 当前调用是否已进入快速退出路径；该状态只在本次调用内有效。
     quick_exit: bool = False
     # quick_exit 的退出按钮等待窗口；用于容忍页面尚未加载完成时的短暂失败。
@@ -505,6 +506,7 @@ class GeneralBattle(GeneralBuff, GeneralBattleAssets):
         context.long_refresh_timer = Timer(180).start()
         context.last_page = None
         context.battle_started_at = None
+        context.unconfirmed_settlement_ts = None
         context.outcome_ready = False
         context.reward_no_battle_ts = None
         context.quick_exit = bool(config.quick_exit)
@@ -659,6 +661,7 @@ class GeneralBattle(GeneralBuff, GeneralBattleAssets):
             None: 直接原地更新 `context`。
         """
 
+        context.unconfirmed_settlement_ts = None
         if context.battle_started_at is None:
             context.battle_started_at = time.time()
             context.last_page = page_battle
@@ -686,6 +689,17 @@ class GeneralBattle(GeneralBuff, GeneralBattleAssets):
             and context.battle_started_at is not None
             and self._battle_age(context) >= MIN_BATTLE_RESULT_DELAY
         )
+
+    def _inherit_current_battle_frame(self, context: BattleContext) -> None:
+        """Consume the caller's current battle frame before taking a new screenshot."""
+        if GameUi.detect_page_in(self, page_battle, include_global=False) == page_battle:
+            self._mark_battle_started(context)
+
+    def _guard_unconfirmed_settlement(self, context: BattleContext) -> None:
+        if context.unconfirmed_settlement_ts is None:
+            context.unconfirmed_settlement_ts = time.time()
+        elif time.time() - context.unconfirmed_settlement_ts >= 15:
+            raise GameStuckError('Battle settlement has no confirmed battle after 15 seconds')
 
     def _can_record_current_battle_result(self, context: BattleContext) -> bool:
         """判断结算页是否属于本场战斗，而不是开战瞬间的旧画面。"""
@@ -769,6 +783,7 @@ class GeneralBattle(GeneralBuff, GeneralBattleAssets):
         """
         context.reward_no_battle_ts = None
         if not self._can_record_current_battle_result(context):
+            self._guard_unconfirmed_settlement(context)
             logger.info("Ignore stale battle result before battle confirmation")
             return BattleAction.CONTINUE
         context.outcome_ready = True
@@ -790,6 +805,7 @@ class GeneralBattle(GeneralBuff, GeneralBattleAssets):
         """
         context.reward_no_battle_ts = None
         if not self._can_record_current_battle_result(context):
+            self._guard_unconfirmed_settlement(context)
             logger.info("Ignore stale reward page before battle confirmation")
             return BattleAction.CONTINUE
         context.outcome_ready = True
@@ -940,6 +956,7 @@ class GeneralBattle(GeneralBuff, GeneralBattleAssets):
         self._battle_context = context
         resolved_exit_matcher = exit_matcher if exit_matcher is not None else self._exit_matcher()
         try:
+            self._inherit_current_battle_frame(context)
             while True:
                 self.screenshot()
                 self._tick_long_battle(context)
