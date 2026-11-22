@@ -2,8 +2,8 @@
   {
     "itemName": "wq_invite_1",
     "imageName": "invite_wq_invite_1.png",
-    "roiFront": "157,401,30,33",
-    "roiBack": "124,354,100,100",
+    "roiFront": "120,402,30,30",
+    "roiBack": "95,354,135,100",
     "method": "Template matching",
     "threshold": 0.8,
     "description": "description"
@@ -11,8 +11,8 @@
   {
     "itemName": "wq_invite_2",
     "imageName": "invite_wq_invite_2.png",
-    "roiFront": "480,399,30,33",
-    "roiBack": "448,357,100,100",
+    "roiFront": "390,402,30,30",
+    "roiBack": "365,354,185,100",
     "method": "Template matching",
     "threshold": 0.8,
     "description": "description"
@@ -20,8 +20,8 @@
   {
     "itemName": "wq_invite_3",
     "imageName": "invite_wq_invite_3.png",
-    "roiFront": "764,397,30,33",
-    "roiBack": "728,352,100,100",
+    "roiFront": "660,402,30,30",
+    "roiBack": "635,352,195,102",
     "method": "Template matching",
     "threshold": 0.8,
     "description": "description"
@@ -146,7 +146,7 @@
   {
     "itemName": "wq_cooperation_type_jade_1",
     "imageName": "wq_cooperation_type_jade.png",
-    "roiFront": "195,505,180,90",
+    "roiFront": "268,537,35,42",
     "roiBack": "89,461,296,192",
     "method": "Template matching",
     "threshold": 0.8,
@@ -191,7 +191,7 @@
   {
     "itemName": "wq_cooperation_type_jade_2",
     "imageName": "wq_cooperation_type_jade.png",
-    "roiFront": "490,505,180,90",
+    "roiFront": "538,537,35,42",
     "roiBack": "402,474,271,173",
     "method": "Template matching",
     "threshold": 0.8,
@@ -236,7 +236,7 @@
   {
     "itemName": "wq_cooperation_type_jade_3",
     "imageName": "wq_cooperation_type_jade.png",
-    "roiFront": "790,505,180,90",
+    "roiFront": "808,537,35,42",
     "roiBack": "685,481,290,161",
     "method": "Template matching",
     "threshold": 0.8,

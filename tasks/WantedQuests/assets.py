@@ -21,11 +21,11 @@ class WantedQuestsAssets:
 
 	# Image Rule Assets
 	# description 
-	I_WQ_INVITE_1 = RuleImage(roi_front=(157, 401, 30, 33), roi_back=(124, 354, 100, 100), threshold=0.8, method='Template matching', file='./tasks/WantedQuests/invite/invite_wq_invite_1.png')
+	I_WQ_INVITE_1 = RuleImage(roi_front=(120, 402, 30, 30), roi_back=(95, 354, 135, 100), threshold=0.8, method='Template matching', file='./tasks/WantedQuests/invite/invite_wq_invite_1.png')
 	# description 
-	I_WQ_INVITE_2 = RuleImage(roi_front=(480, 399, 30, 33), roi_back=(448, 357, 100, 100), threshold=0.8, method='Template matching', file='./tasks/WantedQuests/invite/invite_wq_invite_2.png')
+	I_WQ_INVITE_2 = RuleImage(roi_front=(390, 402, 30, 30), roi_back=(365, 354, 185, 100), threshold=0.8, method='Template matching', file='./tasks/WantedQuests/invite/invite_wq_invite_2.png')
 	# description 
-	I_WQ_INVITE_3 = RuleImage(roi_front=(764, 397, 30, 33), roi_back=(728, 352, 100, 100), threshold=0.8, method='Template matching', file='./tasks/WantedQuests/invite/invite_wq_invite_3.png')
+	I_WQ_INVITE_3 = RuleImage(roi_front=(660, 402, 30, 30), roi_back=(635, 352, 195, 102), threshold=0.8, method='Template matching', file='./tasks/WantedQuests/invite/invite_wq_invite_3.png')
 	# description 
 	I_WQ_FRIEND_1 = RuleImage(roi_front=(240,185,180,80), roi_back=(240,185,180,80), threshold=0.8, method="Template matching", file="./tasks/WantedQuests/invite/invite_wq_friend_1.png")
 	# description 
@@ -53,7 +53,7 @@ class WantedQuestsAssets:
 	# 从左到右第一个协作任务的类型 
 	I_WQ_COOPERATION_TYPE_GOLD_1 = RuleImage(roi_front=(195, 505, 180, 90), roi_back=(89, 461, 296, 192), threshold=0.8, method='Template matching', file='./tasks/WantedQuests/invite/wq_cooperation_type_gold.png')
 	# 从左到右第一个协作任务的类型 
-	I_WQ_COOPERATION_TYPE_JADE_1 = RuleImage(roi_front=(195, 505, 180, 90), roi_back=(89, 461, 296, 192), threshold=0.8, method='Template matching', file='./tasks/WantedQuests/invite/wq_cooperation_type_jade.png')
+	I_WQ_COOPERATION_TYPE_JADE_1 = RuleImage(roi_front=(268, 537, 35, 42), roi_back=(89, 461, 296, 192), threshold=0.8, method='Template matching', file='./tasks/WantedQuests/invite/wq_cooperation_type_jade.png')
 	# 从左到右第一个协作任务的类型为狗粮 
 	I_WQ_COOPERATION_TYPE_DOG_FOOD_1 = RuleImage(roi_front=(195, 505, 180, 90), roi_back=(89, 461, 296, 192), threshold=0.8, method='Template matching', file='./tasks/WantedQuests/invite/wq_cooperation_type_dog_food.png')
 	# 从左到右第一个协作任务的类型为猫粮 
@@ -63,7 +63,7 @@ class WantedQuestsAssets:
 	# 从左到右第二个协作任务的类型 
 	I_WQ_COOPERATION_TYPE_GOLD_2 = RuleImage(roi_front=(490, 505, 180, 90), roi_back=(402, 474, 271, 173), threshold=0.8, method='Template matching', file='./tasks/WantedQuests/invite/wq_cooperation_type_gold.png')
 	# 从左到右第二个协作任务的类型 
-	I_WQ_COOPERATION_TYPE_JADE_2 = RuleImage(roi_front=(490, 505, 180, 90), roi_back=(402, 474, 271, 173), threshold=0.8, method='Template matching', file='./tasks/WantedQuests/invite/wq_cooperation_type_jade.png')
+	I_WQ_COOPERATION_TYPE_JADE_2 = RuleImage(roi_front=(538, 537, 35, 42), roi_back=(402, 474, 271, 173), threshold=0.8, method='Template matching', file='./tasks/WantedQuests/invite/wq_cooperation_type_jade.png')
 	# 从左到右第二个协作任务的类型为狗粮 
 	I_WQ_COOPERATION_TYPE_DOG_FOOD_2 = RuleImage(roi_front=(490, 505, 180, 90), roi_back=(402, 474, 271, 173), threshold=0.8, method='Template matching', file='./tasks/WantedQuests/invite/wq_cooperation_type_dog_food.png')
 	# 从左到右第二个协作任务的类型为猫粮 
@@ -73,7 +73,7 @@ class WantedQuestsAssets:
 	# 从左到右第三个协作任务的类型 
 	I_WQ_COOPERATION_TYPE_GOLD_3 = RuleImage(roi_front=(790, 505, 180, 90), roi_back=(685, 481, 290, 161), threshold=0.8, method='Template matching', file='./tasks/WantedQuests/invite/wq_cooperation_type_gold.png')
 	# 从左到右第三个协作任务的类型 
-	I_WQ_COOPERATION_TYPE_JADE_3 = RuleImage(roi_front=(790, 505, 180, 90), roi_back=(685, 481, 290, 161), threshold=0.8, method='Template matching', file='./tasks/WantedQuests/invite/wq_cooperation_type_jade.png')
+	I_WQ_COOPERATION_TYPE_JADE_3 = RuleImage(roi_front=(808, 537, 35, 42), roi_back=(685, 481, 290, 161), threshold=0.8, method='Template matching', file='./tasks/WantedQuests/invite/wq_cooperation_type_jade.png')
 	# 从左到右第三个协作任务的类型为狗粮 
 	I_WQ_COOPERATION_TYPE_DOG_FOOD_3 = RuleImage(roi_front=(790, 505, 180, 90), roi_back=(685, 481, 290, 161), threshold=0.8, method='Template matching', file='./tasks/WantedQuests/invite/wq_cooperation_type_dog_food.png')
 	# 从左到右第三个协作任务的类型为猫粮 
