@@ -9,7 +9,7 @@ from cached_property import cached_property
 from datetime import datetime
 from datetime import timedelta, time
 from module.base.timer import Timer
-from module.exception import TaskEnd
+from module.exception import TaskEnd, GameStuckError
 from module.logger import logger
 from tasks.BondlingFairyland.assets import BondlingFairylandAssets
 from tasks.BondlingFairyland.config import BondlingMode, BondlingClass, BondlingSwitchSoul, BondlingConfig, UserStatus
@@ -36,7 +36,37 @@ class ScriptTask(GameUi, GeneralInvite, GeneralRoom, GeneralBattle, SwitchSoul, 
     plate_interval: int = None  # 契灵盘子数量间隔(一般为1)
 
     def _exit_matcher(self) -> ExitMatcher | None:
-        return any_of(self.I_BALL_FIRE, self.I_CHECK_BONDLING_FAIRYLAND, self.I_GI_EMOJI_1, self.I_GI_EMOJI_2)
+        return any_of(self.I_BALL_FIRE, self.I_CHECK_BONDLING_FAIRYLAND, self.I_GI_EMOJI_1, self.I_GI_EMOJI_2, self.I_GI_SURE)
+
+    def check_and_invite(self, default_invite: bool = True) -> bool:
+        """Finish the leader's repeat-invite dialog without waiting forever on its checkbox."""
+        if not self.appear(self.I_GI_SURE):
+            return False
+        timeout = Timer(15).start()
+        checkbox_wait = Timer(3).start()
+        checkbox_clicks = 0
+        confirm_clicks = 0
+        absent_frames = 0
+        while not timeout.reached():
+            self.screenshot()
+            if not self.appear(self.I_GI_SURE):
+                absent_frames += 1
+                if absent_frames >= 2:
+                    return True
+                continue
+            absent_frames = 0
+            if (default_invite and not self.appear(self.I_I_DEFAULT)
+                    and checkbox_clicks < 3 and not checkbox_wait.reached()):
+                if self.appear_then_click(self.I_I_NO_DEFAULT, interval=1):
+                    checkbox_clicks += 1
+                continue
+            if confirm_clicks >= 3:
+                continue
+            if self.appear_then_click(self.I_GI_SURE, interval=1):
+                if default_invite and not self.appear(self.I_I_DEFAULT):
+                    logger.warning('Default invite checkbox unconfirmed; confirm this invitation only')
+                confirm_clicks += 1
+        raise GameStuckError('Bondling repeat-invite dialog did not close after bounded confirmation')
 
     def _register_custom_pages(self) -> None:
         page_result = self.navigator.resolve_page(page_battle_result)
@@ -51,6 +81,7 @@ class ScriptTask(GameUi, GeneralInvite, GeneralRoom, GeneralBattle, SwitchSoul, 
 
     def _handle_result(self, context: BattleContext, cfg: GeneralBattleConfig) -> BattleAction:
         context.reward_no_battle_ts = None
+        context.outcome_ready = True
         bondling_mode = self.config.bondling_fairyland.bondling_config.bondling_mode
         cap_again = bondling_mode in [BondlingMode.MODE3, BondlingMode.MODE4]
         clicked = False

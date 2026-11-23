@@ -308,8 +308,8 @@
   {
     "itemName": "i_no_default",
     "imageName": "gi_i_no_default.png",
-    "roiFront": "548,348,26,26",
-    "roiBack": "548,348,26,26",
+    "roiFront": "542,343,36,35",
+    "roiBack": "542,343,36,35",
     "method": "Template matching",
     "threshold": 0.8,
     "description": "不勾选 默认邀请"
@@ -317,8 +317,8 @@
   {
     "itemName": "i_default",
     "imageName": "gi_i_default.png",
-    "roiFront": "548,348,26,26",
-    "roiBack": "548,348,26,26",
+    "roiFront": "541,342,41,39",
+    "roiBack": "541,342,41,39",
     "method": "Template matching",
     "threshold": 0.8,
     "description": "勾选 默认邀请"
@@ -335,8 +335,8 @@
   {
     "itemName": "gi_sure",
     "imageName": "gi_gi_sure.png",
-    "roiFront": "664,408,180,64",
-    "roiBack": "664,408,180,64",
+    "roiFront": "698,419,106,36",
+    "roiBack": "666,406,175,60",
     "method": "Template matching",
     "threshold": 0.8,
     "description": "队长邀请 确定"
