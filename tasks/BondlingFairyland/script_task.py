@@ -5,6 +5,8 @@
 from time import sleep
 
 import random
+import copy
+import cv2
 from cached_property import cached_property
 from datetime import datetime
 from datetime import timedelta, time
@@ -481,6 +483,28 @@ class ScriptTask(GameUi, GeneralInvite, GeneralRoom, GeneralBattle, SwitchSoul, 
         self.set_next_run(task='BondlingFairyland', finish=True, success=True)
         raise TaskEnd
 
+    def _read_stone_stock(self):
+        # Keep the full counter width; enlarge and isolate bright digits from the background.
+        rule = copy.copy(self.O_B_STONE_NUMBER)
+        previous = None
+        for _ in range(5):
+            self.screenshot()
+            if not self.appear(self.I_STONE_SURE):
+                raise GamePageUnknownError('Stone summon dialog disappeared while reading stock')
+            crop = self.O_B_STONE_NUMBER.crop(self.device.image, self.O_B_STONE_NUMBER.roi)
+            crop = cv2.resize(crop, None, fx=3, fy=3, interpolation=cv2.INTER_CUBIC)
+            gray = cv2.cvtColor(crop, cv2.COLOR_RGB2GRAY)
+            _, mask = cv2.threshold(gray, 120, 255, cv2.THRESH_BINARY)
+            rule.roi = (0, 0, mask.shape[1], mask.shape[0])
+            current, remaining, total = rule.ocr(cv2.cvtColor(mask, cv2.COLOR_GRAY2RGB))
+            value = (current, remaining, total)
+            valid = total > 0 and 0 <= current <= total and current + remaining == total
+            if valid and value == previous:
+                return current
+            previous = value if valid else None
+            sleep(0.3)
+        raise GameStuckError('Cannot reliably read stone stock; stock exhaustion not confirmed')
+
     def run_stone(self, bondling_stone_enable: bool):
         """
         使用结契石 进行召唤 契灵
@@ -493,9 +517,9 @@ class ScriptTask(GameUi, GeneralInvite, GeneralRoom, GeneralBattle, SwitchSoul, 
         if not bondling_stone_enable or not self.appear(self.I_STONE_SURE):
             self.ui_click_until_disappear(self.I_STONE_CLOSE, interval=1.2)
             return False
-        cu, res, total = self.O_B_STONE_NUMBER.ocr(self.device.image)
+        cu = self._read_stone_stock()
         # 如果没有石头了
-        if cu == 0 and cu + res == total:
+        if cu == 0:
             self.ui_click_until_disappear(self.I_STONE_CLOSE, interval=1.2)
             logger.warning(f'已经没有鸣契石召唤契灵了')
             return False
