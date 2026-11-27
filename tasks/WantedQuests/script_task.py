@@ -539,50 +539,44 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
                     self.trace_one(item['inviteBtn'])
         return ret
 
-    def cooperation_invite(self, btn: RuleImage, name: str):
-        """
-            单个协作任务邀请
-        @param btn:
-        @param name:
-        @return:
-        """
-        self.ui_click(btn, stop=self.I_WQ_INVITE_ENSURE, interval=2.5)
-
-        # 选人
-        self.O_WQ_INVITE_COLUMN_1.keyword = name
-        self.O_WQ_INVITE_COLUMN_2.keyword = name
-
-        find = False
-        for i in range(2):
-            self.wait_until_appear(self.I_WQ_INVITE_FRIEND_LIST_APPEAR, wait_time=4)
-            self.screenshot()
-            in_col_1 = self.ocr_appear_click(self.O_WQ_INVITE_COLUMN_1)
-            in_col_2 = self.ocr_appear_click(self.O_WQ_INVITE_COLUMN_2)
-            find = in_col_2 or in_col_1
-            if find:
+    def _select_cooperation_friend(self, name):
+        # Explicit alternatives only: never match fragments across different friends.
+        aliases = {s.strip() for s in re.split(r'[;；\n]+', name) if s.strip()}
+        for column, roi in ((self.O_WQ_INVITE_COLUMN_1, (225, 185, 205, 340)),
+                            (self.O_WQ_INVITE_COLUMN_2, (520, 185, 200, 340))):
+            original_roi = column.roi
+            try:
+                column.roi = roi
+                results = column.detect_and_ocr(self.device.image)
+            finally:
+                column.roi = original_roi
+            for result in results:
+                if result.ocr_text.strip() not in aliases:
+                    continue
+                box = result.box
+                column.area = (int(box[0, 0]) + roi[0], int(box[0, 1]) + roi[1],
+                               int(box[1, 0] - box[0, 0]), int(box[2, 1] - box[0, 1]))
+                self.click(column)
                 self.wait_until_appear(self.I_WQ_INVITE_SELECTED, wait_time=2)
                 self.screenshot()
-                if self.appear(self.I_WQ_INVITE_SELECTED):
-                    logger.info("friend found and selected")
-                    break
-                # TODO OCR识别到文字 但是没有选中 尝试重新选择  (选择好友时,弹出协作邀请导致选择好友失败)
-            # 检测跨服好友按钮是否高亮
-            while 1:
-                self.screenshot()
-                if not self.appear_highlight(self.I_WQ_INVITE_DIFF_SVR_HIGHLIGHT):
-                    self.click(self.I_WQ_INVITE_DIFF_SVR)
-                    continue
-                break
-            # 等待好友列表加载
-            self.wait_until_appear(self.I_WQ_INVITE_DIFF_SVR_HIGHLIGHT, wait_time=4)
-        # 没有找到需要邀请的人,点击取消 返回悬赏封印界面
-        if not find:
+                return bool(self.appear(self.I_WQ_INVITE_SELECTED))
+        return False
+
+    def cooperation_invite(self, btn: RuleImage, name: str):
+        self.ui_click(btn, stop=self.I_WQ_INVITE_ENSURE, interval=2.5)
+        # Visit each tab once; do not spin on a highlight template.
+        for tab in (self.I_WQ_INVITE_SAME_SVR, self.I_WQ_INVITE_DIFF_SVR):
+            self.click(tab)
+            self.device.sleep(1)
             self.screenshot()
-            self.ui_click_until_disappear(self.I_WQ_INVITE_CANCEL, interval=1.5)
-            return False
-        #
-        self.ui_click_until_disappear(self.I_WQ_INVITE_ENSURE, interval=1)
-        return True
+            if not self.appear(self.I_WQ_INVITE_ENSURE):
+                return False
+            if self._select_cooperation_friend(name):
+                logger.info("friend found and selected")
+                self.ui_click_until_disappear(self.I_WQ_INVITE_ENSURE, interval=1)
+                return True
+        self.ui_click_until_disappear(self.I_WQ_INVITE_CANCEL, interval=1.5)
+        return False
 
     def get_cooperation_info(self) -> List:
         """

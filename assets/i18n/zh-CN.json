@@ -89,7 +89,7 @@
   "dokan_run_time_help": "若指定时间未开启则在1小时内按照调度器失败间隔时间不断重试",
   "demon_retreat_time_help": "若指定时间未开启则在1小时内按照调度器失败间隔时间不断重试",
   "friend_list": "好友列表",
-  "invite_friend_list_help": "填写被邀请的好友名称, 多个好友换行写",
+  "invite_friend_list_help": "多个好友换行填写；同一好友的多个识别名字用分号分隔，完整命中任意一个即可邀请，仍按一位好友计数。",
   "auto_find": "自动寻找",
   "recent_friend": "最近好友",
   "leader": "队长",

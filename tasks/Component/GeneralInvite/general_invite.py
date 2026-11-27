@@ -337,8 +337,13 @@ class GeneralInvite(BaseTask, GeneralInviteAssets):
         return str(text).replace(' ', '').replace('　', '').strip()
 
     def _find_exact_friend_area(self, rule, name: str) -> tuple[int, int, int, int] | None:
-        target_name = self._normalize_friend_name_text(name)
-        if not target_name:
+        # Each line is one friend; semicolon-separated names are OCR alternatives.
+        target_names = {
+            self._normalize_friend_name_text(candidate)
+            for candidate in (name or '').replace('；', ';').split(';')
+            if self._normalize_friend_name_text(candidate)
+        }
+        if not target_names:
             return None
 
         boxed_results = rule.detect_and_ocr(self.device.image)
@@ -347,7 +352,7 @@ class GeneralInvite(BaseTask, GeneralInviteAssets):
 
         for result in boxed_results:
             ocr_text = self._normalize_friend_name_text(result.ocr_text)
-            if ocr_text != target_name:
+            if ocr_text not in target_names:
                 continue
             box = result.box
             rec_x = box[0, 0]
