@@ -65,12 +65,14 @@ def publish_phase(owner, stage):
     if not runtime or not peer:
         return
     other = runtime.peer_battle_state(TASK, peer)
+    if other and not getattr(owner, '_handoff_peer_session', None):
+        owner._handoff_peer_session = other['session']
     if stage == 'leader' and other and other['payload'].get('stage') == 'leader':
         logger.warning('契灵对端仍处于队长阶段，推迟本次任务以避免双队长')
         owner.config.task_delay(task=TASK, success=False, server=False)
         raise TaskEnd
     runtime.publish_battle_state(TASK, peer, owner._handoff_session,
-                                {'stage': stage, 'target_session': other['session'] if other else None})
+                                {'stage': stage, 'target_session': getattr(owner, '_handoff_peer_session', None)})
 
 
 def peer_finished(owner):
@@ -79,8 +81,10 @@ def peer_finished(owner):
     if not runtime or not peer:
         return False
     other = runtime.peer_battle_state(TASK, peer)
-    return bool(other and other['payload'].get('stage') == 'leader_done'
-                and other['payload'].get('target_session') == owner._handoff_session)
+    return bool(other and other['payload'].get('stage') in ('leader_done', 'finished')
+                and other['payload'].get('target_session') == owner._handoff_session
+                and (not getattr(owner, '_handoff_peer_session', None)
+                     or other['session'] == owner._handoff_peer_session))
 
 
 def require_handoff(owner):
@@ -88,3 +92,34 @@ def require_handoff(owner):
         logger.warning('契灵队员未收到本轮交接确认，推迟任务，不自行切换队长')
         owner.config.task_delay(task=TASK, success=False, server=False)
         raise TaskEnd
+
+
+def peer_stopped(owner):
+    runtime = getattr(owner, 'cooperation_runtime', None)
+    peer = getattr(owner, '_handoff_peer', None)
+    if not runtime or not peer:
+        return False
+    other = runtime.peer_battle_state(TASK, peer)
+    if other:
+        session = getattr(owner, '_handoff_peer_session', None)
+        if session is None:
+            owner._handoff_peer_session = other['session']
+        elif session != other['session']:
+            return True
+        if other['payload'].get('stage') in ('stopped', 'finished'):
+            return True
+    return runtime.runner_task(peer) != TASK
+
+
+def finish_run(owner):
+    runtime = getattr(owner, 'cooperation_runtime', None)
+    peer = getattr(owner, '_handoff_peer', None)
+    if not runtime or not peer:
+        return
+    # Preserve a delivered completion even after the leader's scheduler leaves the task.
+    with runtime.connect() as db:
+        row = db.execute('SELECT payload FROM battle_states WHERE source=? AND target=? AND task=? AND session=?',
+                         (runtime.name, peer, TASK, owner._handoff_session)).fetchone()
+    import json
+    stage = json.loads(row[0]).get('stage') if row else None
+    publish_phase(owner, 'finished' if stage == 'leader_done' else 'stopped')

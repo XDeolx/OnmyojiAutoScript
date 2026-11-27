@@ -73,7 +73,7 @@ class ReplaceShikigami(BaseTask, ReplaceShikigamiAssets):
                 self.appear_then_click(self.I_RS_LEVEL_MAX, interval=0.5)
         logger.info('Unset all shikigami max lv')
 
-    def set_shikigami(self, shikigami_order: int = 7, stop_image: RuleImage = None):
+    def set_shikigami(self, shikigami_order: int = 7, stop_image: RuleImage = None, completion_check=None):
         """
         要求在式神育成的界面
         选择式神 1-7
@@ -94,6 +94,8 @@ class ReplaceShikigami(BaseTask, ReplaceShikigamiAssets):
         start_time = time.time()   # 记录起始时间
         click_interval_timer = Timer(1.5).start()  # 点击选择式神间隔
         clicked = False
+        confirmed_at = None
+        selection_attempts = 0
         while 1:
             # ——1. 先做超时检查——
             if time.time() - start_time > TIMEOUT_SEC:
@@ -103,16 +105,28 @@ class ReplaceShikigami(BaseTask, ReplaceShikigamiAssets):
             if click_interval_timer.reached_and_reset():
                 clicked = False
             self.screenshot()
+            if completion_check is not None and confirmed_at is not None:
+                if completion_check():
+                    break
+                if time.time() - confirmed_at > 12:
+                    raise GameStuckError('寄养确认后未能验证倒计时，停止重复选择式神')
+                # Allow UI transition, but never click the roster again after confirmation.
+                continue
             if self.appear_then_click(self.I_U_CONFIRM_SMALL, interval=0.5):
+                confirmed_at = time.time()
                 clicked = False  # 点击了确认, 恢复选式神的操作
                 continue
             if not self.appear(stop_image):
                 break
+            if completion_check is not None and selection_attempts >= 6:
+                raise GameStuckError('寄养选择式神未响应，停止重复点击')
             # 与下方点击第7个式神操作互斥, 防止确认按钮还没有出现被下方取消掉
             if not clicked and self.click(click_match, interval=1.5):
+                selection_attempts += 1
                 clicked = True
                 continue
             if not clicked and self.click(_click_match[6], interval=4.5):
+                selection_attempts += 1
                 # 有的时候第七个格子被占用到寄养上去了
                 # 导致一直无法选上
                 clicked = True

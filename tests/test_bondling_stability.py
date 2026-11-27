@@ -50,10 +50,13 @@ class StabilityTest(unittest.TestCase):
 
     def test_late_invitation_waits_instead_of_leaving(self):
         class Fake:
+            cooperation_runtime = None
+            def _cooperation_should_stop(self): return False
             def __getattr__(self, name): return name
             def screenshot(self): pass
             def appear(self, rule): return rule == 'I_CHECK_BONDLING_FAIRYLAND'
             def is_in_room(self, *a): return False
+            def _cooperation_should_stop(self): return False
             def exit_room(self): raise AssertionError('must wait for next invite')
         fake = Fake()
         self.assertIsNone(load('wait_battle', {'Timer': Timer})(fake, Time(1, 2, 3)))
@@ -102,6 +105,8 @@ class StabilityTest(unittest.TestCase):
 
     def test_transient_courtyard_does_not_end_wait(self):
         class Fake:
+            cooperation_runtime = None
+            def _cooperation_should_stop(self): return False
             frame = 0
             def __getattr__(self, name): return name
             def screenshot(self): self.frame += 1

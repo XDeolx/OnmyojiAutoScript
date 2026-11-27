@@ -1,6 +1,7 @@
 # This Python file uses the following encoding: utf-8
 # @author runhey
 # github https://github.com/runhey
+import copy
 import re
 import time
 from cached_property import cached_property
@@ -779,7 +780,8 @@ class ScriptTask(GameUi, ReplaceShikigami, KekkaiUtilizeAssets):
             # 切换式神的类型
             self.switch_shikigami_class(shikigami_class)
             # 上式神
-            self.set_shikigami(shikigami_order, stop_image)
+            self.set_shikigami(shikigami_order, stop_image,
+                               completion_check=self._utilize_completion_check())
         except (GamePageUnknownError, GameStuckError) as error:
             return self._record_utilize_failure(
                 f'式神寄养失败: {type(error).__name__}',
@@ -788,6 +790,30 @@ class ScriptTask(GameUi, ReplaceShikigami, KekkaiUtilizeAssets):
         self.utilize_failed_count = 0
         self.utilize_entered_failed_count = 0
         return True
+
+    def _utilize_countdowns(self):
+        values = []
+        for roi in ((970, 117, 105, 33), (1135, 117, 110, 33)):
+            rule = copy.copy(self.O_UTILIZE_RES_TIME)
+            rule.roi = roi
+            value = rule.ocr(self.device.image)
+            values.append(value.total_seconds() if isinstance(value, timedelta) else 0)
+        return values
+
+    def _utilize_completion_check(self):
+        baseline = self._utilize_countdowns()
+        previous = None
+        def check():
+            nonlocal previous
+            current = self._utilize_countdowns()
+            # Only a newly occupied slot counts; a pre-existing guest must not satisfy it.
+            new_slots = [i for i, seconds in enumerate(current)
+                         if 0 < seconds <= 6 * 3600 and baseline[i] <= 0]
+            confirmed = any(previous is not None and previous[i] > 0
+                            and 0 <= previous[i] - current[i] <= 10 for i in new_slots)
+            previous = current
+            return confirmed
+        return check
 
     def _resource_type_matches_rule(self, card_type: str) -> bool:
         """以详情页 OCR 得到的资源类型判断是否符合当前策略。"""

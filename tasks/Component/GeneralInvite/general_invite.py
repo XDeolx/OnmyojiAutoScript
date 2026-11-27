@@ -71,6 +71,10 @@ class GeneralInvite(BaseTask, GeneralInviteAssets):
         self.timer_wait.start()
         while 1:
             self.screenshot()
+            stop = getattr(self, '_cooperation_should_stop', None)
+            if callable(stop) and stop():
+                logger.info('Cooperation peer stopped; stop inviting')
+                return False
             if self.timer_wait.reached():
                 logger.warning('Wait timeout')
                 return False

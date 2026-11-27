@@ -61,6 +61,39 @@ class HandoffWakeTest(unittest.TestCase):
         publish_phase(b, 'leader')
         with self.assertRaises(TaskEnd): publish_phase(a, 'leader')
 
+    def test_both_role_phases_and_final_completion(self):
+        from tasks.BondlingFairyland.cooperation import publish_phase, peer_finished, finish_run
+        a = NS(cooperation_runtime=self.a, _handoff_peer='beta', _handoff_session='a1', config=self.config())
+        b = NS(cooperation_runtime=self.b, _handoff_peer='alpha', _handoff_session='b1', config=self.config())
+        publish_phase(a, 'starting')
+        publish_phase(b, 'starting')
+        publish_phase(a, 'leader')
+        self.assertFalse(peer_finished(b))
+        publish_phase(a, 'leader_done')
+        self.assertTrue(peer_finished(b))
+        publish_phase(b, 'leader')
+        self.assertFalse(peer_finished(a))
+        publish_phase(b, 'leader_done')
+        finish_run(b)
+        self.b.publish('')
+        self.assertTrue(peer_finished(a))
+
+    def test_peer_abort_offline_and_restart_stop_current_round(self):
+        from tasks.BondlingFairyland.cooperation import publish_phase, peer_stopped, finish_run
+        a = NS(cooperation_runtime=self.a, _handoff_peer='beta', _handoff_session='a1', config=self.config())
+        b = NS(cooperation_runtime=self.b, _handoff_peer='alpha', _handoff_session='b1', config=self.config())
+        self.b.publish(TASK)
+        publish_phase(b, 'starting')
+        self.assertFalse(peer_stopped(a))
+        finish_run(b)
+        self.assertTrue(peer_stopped(a))
+        b._handoff_session = 'b2'
+        publish_phase(b, 'starting')
+        self.assertTrue(peer_stopped(a))
+        a._handoff_peer_session = 'b2'
+        self.b.close()
+        self.assertTrue(peer_stopped(a))
+
     def test_idle_peer_wakes(self):
         self.assertTrue(self.a.prepare(self.config('beta'), TASK, 'beta', defer=False))
         config = self.config()

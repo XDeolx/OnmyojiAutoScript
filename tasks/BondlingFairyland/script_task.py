@@ -212,8 +212,18 @@ class ScriptTask(GameUi, GeneralInvite, GeneralRoom, GeneralBattle, SwitchSoul, 
 
 
     def run(self):
-        from tasks.BondlingFairyland.cooperation import prepare_handoff
+        from tasks.BondlingFairyland.cooperation import prepare_handoff, finish_run
         prepare_handoff(self)
+        try:
+            return self._run_handoff_task()
+        finally:
+            finish_run(self)
+
+    def _cooperation_should_stop(self):
+        from tasks.BondlingFairyland.cooperation import peer_stopped
+        return peer_stopped(self)
+
+    def _run_handoff_task(self):
         self._room_locked = False
         cong = self.config.bondling_fairyland
 
@@ -279,11 +289,16 @@ class ScriptTask(GameUi, GeneralInvite, GeneralRoom, GeneralBattle, SwitchSoul, 
         is_first = True
         no_plate = False
         while 1:
+            if self._cooperation_should_stop():
+                success = False
+                break
             def create_bond_team():
                 nonlocal no_plate
                 click_count = 0
                 while 1:
                     self.screenshot()
+                    if self._cooperation_should_stop():
+                        return False
                     if self.appear(self.I_GI_IN_ROOM):
                         return True
                     if self.appear_then_click(self.I_C_PLATE_LESS, interval=1):
@@ -323,7 +338,7 @@ class ScriptTask(GameUi, GeneralInvite, GeneralRoom, GeneralBattle, SwitchSoul, 
             if success:
                 is_first = True
                 if not create_bond_team() and not no_plate:
-                    phase_completed = True
+                    phase_completed = not self._cooperation_should_stop()
                     break
             
             if no_plate:
@@ -386,12 +401,15 @@ class ScriptTask(GameUi, GeneralInvite, GeneralRoom, GeneralBattle, SwitchSoul, 
         if phase_completed:
             publish_phase(self, 'leader_done')
         elif self.config.bondling_fairyland.bondling_config.user_status in (UserStatus.handoff1, UserStatus.handoff2):
+            self.goto_page(page_main)
             self.config.task_delay(task='BondlingFairyland', success=False, server=False)
             raise TaskEnd
         # 引用配置
         if UserStatus.handoff1 == self.config.bondling_fairyland.bondling_config.user_status:
             self.current_count = 0
             self.run_member()
+            from tasks.BondlingFairyland.cooperation import require_handoff
+            require_handoff(self)
         self.goto_page(page_main)
         self.set_next_run(task='BondlingFairyland', finish=True, success=True)
         raise TaskEnd
@@ -415,6 +433,10 @@ class ScriptTask(GameUi, GeneralInvite, GeneralRoom, GeneralBattle, SwitchSoul, 
 
             if peer_finished(self):
                 logger.info("契灵收到本轮队长交接确认")
+                break
+
+            if self._cooperation_should_stop():
+                logger.info("契灵对端任务已终止，退出房间并收尾")
                 break
 
             if wait_timer.reached():
@@ -472,6 +494,7 @@ class ScriptTask(GameUi, GeneralInvite, GeneralRoom, GeneralBattle, SwitchSoul, 
             if self.exit_battle():
                 pass
                 # 引用配置
+        self.goto_page(page_main)
         if UserStatus.MEMBER == self.config.bondling_fairyland.bondling_config.user_status:
             self.goto_page(page_main)
             self.set_next_run(task='BondlingFairyland', finish=True, success=True)
@@ -489,6 +512,8 @@ class ScriptTask(GameUi, GeneralInvite, GeneralRoom, GeneralBattle, SwitchSoul, 
         current_ball_index = idx if idx is not None else 1
         capture_setting_checked = False
         while 1:
+            if self._cooperation_should_stop():
+                break
             if not self.in_search_ui(screenshot=True):
                 self.goto_bondling_search()
                 self.goto_ball_area(current_ball_index)
@@ -525,6 +550,18 @@ class ScriptTask(GameUi, GeneralInvite, GeneralRoom, GeneralBattle, SwitchSoul, 
                 # 否则就是模式1
                 break
 
+        if (bondling_config.user_status == UserStatus.handoff1
+                and not self._cooperation_should_stop()):
+            from tasks.BondlingFairyland.cooperation import publish_phase, require_handoff
+            self.goto_page(page_bondling_fairyland)
+            publish_phase(self, 'leader_done')
+            self.current_count = 0
+            self.run_member()
+            require_handoff(self)
+        elif (bondling_config.user_status == UserStatus.handoff2
+              and not self._cooperation_should_stop()):
+            from tasks.BondlingFairyland.cooperation import publish_phase
+            publish_phase(self, 'leader_done')
         logger.info('BondlingFairyland task finished')
         self.goto_page(page_main)
         self.set_next_run(task='BondlingFairyland', finish=True, success=True)
@@ -862,6 +899,11 @@ class ScriptTask(GameUi, GeneralInvite, GeneralRoom, GeneralBattle, SwitchSoul, 
             if self.appear(self.I_EXIT):
                 success = True
                 logger.info("契灵：已经在战斗场景中")
+                break
+
+            from tasks.BondlingFairyland.cooperation import peer_finished
+            if peer_finished(self) or self._cooperation_should_stop():
+                success = False
                 break
 
             # 队员接受邀请过慢时，队长可能已经开始战斗。游戏会短暂显示
