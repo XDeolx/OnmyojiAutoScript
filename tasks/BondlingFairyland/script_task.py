@@ -2,7 +2,7 @@
 # @author runhey
 # github https://github.com/runhey
 
-from time import sleep
+from time import sleep, monotonic
 
 import random
 import copy
@@ -82,6 +82,9 @@ class ScriptTask(GameUi, GeneralInvite, GeneralRoom, GeneralBattle, SwitchSoul, 
         page_result.priority = 50
 
     def _handle_result(self, context: BattleContext, cfg: GeneralBattleConfig) -> BattleAction:
+        if getattr(self, "_abandon_context", None) is not context:
+            self._abandon_context = context
+            self._abandon_started = None
         context.reward_no_battle_ts = None
         context.outcome_ready = True
         bondling_mode = self.config.bondling_fairyland.bondling_config.bondling_mode
@@ -127,6 +130,23 @@ class ScriptTask(GameUi, GeneralInvite, GeneralRoom, GeneralBattle, SwitchSoul, 
         if self.appear(self.I_CAP_SUCCESS) or self.appear(self.I_BATTLE_SUCCESS):
             return False
 
+        # Keep retry budget across result-handler calls; expected failure is not an error.
+        now = monotonic()
+        if not self.appear(self.I_BATTLE_FAIL_ABANDON):
+            self._abandon_started = None
+            return False
+        started = getattr(self, '_abandon_started', None)
+        if started is None:
+            self._abandon_started = now
+            self._abandon_clicks = 0
+            self._abandon_last_click = -100.0
+        elif now - started > 30:
+            raise GameStuckError('契灵放弃结契持续未响应，重新恢复页面')
+        if now - self._abandon_last_click < 3 or self._abandon_clicks >= 3:
+            return True
+        self._abandon_last_click = now
+        self._abandon_clicks += 1
+        max_attempts = 1
         logger.info('Wait for battle fail abandon')
         timeout_timer = Timer(timeout).start()
         attempts = 0
@@ -140,6 +160,7 @@ class ScriptTask(GameUi, GeneralInvite, GeneralRoom, GeneralBattle, SwitchSoul, 
             if not self.appear(self.I_BATTLE_FAIL_ABANDON):
                 if attempts > 0:
                     logger.info('Battle fail abandon disappeared')
+                    self._abandon_started = None
                     return True
             elif attempts < max_attempts and self.appear_then_click(
                 self.I_BATTLE_FAIL_ABANDON,
@@ -236,6 +257,8 @@ class ScriptTask(GameUi, GeneralInvite, GeneralRoom, GeneralBattle, SwitchSoul, 
             case UserStatus.handoff2:
                 self.limit_count //= 2
                 self.run_member()
+                from tasks.BondlingFairyland.cooperation import require_handoff
+                require_handoff(self)
                 self.current_count = 0
                 self.goto_page(page_bondling_fairyland)
                 self.switch_ball()
@@ -249,6 +272,9 @@ class ScriptTask(GameUi, GeneralInvite, GeneralRoom, GeneralBattle, SwitchSoul, 
     def run_leader(self):
         """  点击 求援， 组队模式  """
         logger.hr('Start run leader', 2)
+        from tasks.BondlingFairyland.cooperation import publish_phase
+        publish_phase(self, 'leader')
+        phase_completed = False
         success = True
         is_first = True
         no_plate = False
@@ -297,14 +323,16 @@ class ScriptTask(GameUi, GeneralInvite, GeneralRoom, GeneralBattle, SwitchSoul, 
             if success:
                 is_first = True
                 if not create_bond_team() and not no_plate:
-                    return True
+                    phase_completed = True
+                    break
             
             if no_plate:
                 #  TODO 不知为何无法识别，但会自动切换页面，不用也行
                 #  if self.appear(self.I_C_PLATE_BUY):
                 #     self.click(random_click(ltrb=(True, False, False, False)), interval=1.2)
                 logger.info('棋盘不足，退出')
-                return False
+                phase_completed = True
+                break
 
             self.check_and_invite(True)
 
@@ -314,11 +342,13 @@ class ScriptTask(GameUi, GeneralInvite, GeneralRoom, GeneralBattle, SwitchSoul, 
                     self.invite_friends(self.config.bondling_fairyland.invite_config)
                     # 等待三秒让队员进房间,避免队员没进房间出现异常
                     sleep(3)
+                    phase_completed = True
                     logger.info(f'契灵次数:{self.current_count}已完成,退出')
                     break
 
             if datetime.now() - self.start_time >= self.limit_time:
                 if self.appear(self.I_GI_IN_ROOM):
+                    phase_completed = True
                     logger.info('bondling_fairyland time limit out')
                     break
 
@@ -353,6 +383,11 @@ class ScriptTask(GameUi, GeneralInvite, GeneralRoom, GeneralBattle, SwitchSoul, 
             pass
 
         self.goto_page(page_bondling_fairyland)
+        if phase_completed:
+            publish_phase(self, 'leader_done')
+        elif self.config.bondling_fairyland.bondling_config.user_status in (UserStatus.handoff1, UserStatus.handoff2):
+            self.config.task_delay(task='BondlingFairyland', success=False, server=False)
+            raise TaskEnd
         # 引用配置
         if UserStatus.handoff1 == self.config.bondling_fairyland.bondling_config.user_status:
             self.current_count = 0
@@ -363,6 +398,8 @@ class ScriptTask(GameUi, GeneralInvite, GeneralRoom, GeneralBattle, SwitchSoul, 
 
     def run_member(self):
         logger.hr('Start run member', 2)
+        from tasks.BondlingFairyland.cooperation import peer_finished
+
         # 开始等待队长拉人
         wait_time = self.config.bondling_fairyland.invite_config.wait_time
         wait_timer = Timer(wait_time.hour * 3600 + wait_time.minute * 60 + wait_time.second)
@@ -375,6 +412,10 @@ class ScriptTask(GameUi, GeneralInvite, GeneralRoom, GeneralBattle, SwitchSoul, 
         while 1:
 
             self.screenshot()
+
+            if peer_finished(self):
+                logger.info("契灵收到本轮队长交接确认")
+                break
 
             if wait_timer.reached():
                 logger.info(f"队员等待超时:{wait_timer.current()}, 退出")
@@ -406,7 +447,10 @@ class ScriptTask(GameUi, GeneralInvite, GeneralRoom, GeneralBattle, SwitchSoul, 
                     self.device.stuck_record_add('BATTLE_STATUS_S')
                     continue
                 else:
-                    break
+                    # A lost room or restarting leader is not a completed phase.
+                    if peer_finished(self):
+                        break
+                    continue
             # 队长秒开的时候，检测是否进入到战斗中
             elif self.is_in_battle(False):
                 self.run_general_battle(self.config.bondling_fairyland.battle_config, battle_confirmed=True)
@@ -416,6 +460,7 @@ class ScriptTask(GameUi, GeneralInvite, GeneralRoom, GeneralBattle, SwitchSoul, 
                 continue
 
         while 1:
+            self.screenshot()
             # 有一种情况是本来要退出的，但是队长邀请了进入的战斗的加载界面
             if self.appear(self.I_CHECK_MAIN) or self.appear(self.I_CHECK_EXPLORATION) or self.appear(
                     self.I_BALL_AREA) or self.appear(self.I_BALL_HELP):

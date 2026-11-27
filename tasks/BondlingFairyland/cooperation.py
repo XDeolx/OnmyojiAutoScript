@@ -1,5 +1,6 @@
 """Wake a paired, running scheduler without interrupting its current task."""
 import time
+import uuid
 
 from module.exception import ScriptError, TaskEnd
 from module.logger import logger
@@ -31,6 +32,9 @@ def prepare_handoff(owner):
     if not peer:
         return
     runtime.validate(TASK, peer)
+    owner._handoff_session = uuid.uuid4().hex
+    owner._handoff_peer = peer
+    runtime.publish_battle_state(TASK, peer, owner._handoff_session, {"stage": "starting"})
     wait = settings.invite_config.wait_time
     seconds = wait.hour * 3600 + wait.minute * 60 + wait.second
     if seconds <= 0:
@@ -53,3 +57,34 @@ def prepare_handoff(owner):
     logger.warning('契灵协同对端未运行或等待超时，本次推迟，不进入单边战斗')
     owner.config.task_delay(task=TASK, success=False, server=False)
     raise TaskEnd
+
+
+def publish_phase(owner, stage):
+    runtime = getattr(owner, 'cooperation_runtime', None)
+    peer = getattr(owner, '_handoff_peer', None)
+    if not runtime or not peer:
+        return
+    other = runtime.peer_battle_state(TASK, peer)
+    if stage == 'leader' and other and other['payload'].get('stage') == 'leader':
+        logger.warning('契灵对端仍处于队长阶段，推迟本次任务以避免双队长')
+        owner.config.task_delay(task=TASK, success=False, server=False)
+        raise TaskEnd
+    runtime.publish_battle_state(TASK, peer, owner._handoff_session,
+                                {'stage': stage, 'target_session': other['session'] if other else None})
+
+
+def peer_finished(owner):
+    runtime = getattr(owner, 'cooperation_runtime', None)
+    peer = getattr(owner, '_handoff_peer', None)
+    if not runtime or not peer:
+        return False
+    other = runtime.peer_battle_state(TASK, peer)
+    return bool(other and other['payload'].get('stage') == 'leader_done'
+                and other['payload'].get('target_session') == owner._handoff_session)
+
+
+def require_handoff(owner):
+    if not peer_finished(owner):
+        logger.warning('契灵队员未收到本轮交接确认，推迟任务，不自行切换队长')
+        owner.config.task_delay(task=TASK, success=False, server=False)
+        raise TaskEnd

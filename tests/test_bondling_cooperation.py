@@ -40,6 +40,27 @@ class HandoffWakeTest(unittest.TestCase):
                   reload=lambda: None, task_call=lambda *a, **k: calls.append(a),
                   task_delay=lambda **k: calls.append(k), calls=calls)
 
+    def test_completion_only_allows_current_session(self):
+        from tasks.BondlingFairyland.cooperation import publish_phase, peer_finished, require_handoff
+        a = NS(cooperation_runtime=self.a, _handoff_peer='beta', _handoff_session='a1')
+        b = NS(cooperation_runtime=self.b, _handoff_peer='alpha', _handoff_session='b1', config=self.config())
+        publish_phase(b, 'starting')
+        publish_phase(a, 'leader')
+        with self.assertRaises(TaskEnd): require_handoff(b)
+        publish_phase(a, 'leader_done')
+        self.assertTrue(peer_finished(b))
+        require_handoff(b)
+        b._handoff_session = 'b2'
+        self.assertFalse(peer_finished(b))
+        with self.assertRaises(TaskEnd): require_handoff(b)
+
+    def test_restart_cannot_become_second_leader(self):
+        from tasks.BondlingFairyland.cooperation import publish_phase
+        a = NS(cooperation_runtime=self.a, _handoff_peer='beta', _handoff_session='a1', config=self.config())
+        b = NS(cooperation_runtime=self.b, _handoff_peer='alpha', _handoff_session='b1', config=self.config())
+        publish_phase(b, 'leader')
+        with self.assertRaises(TaskEnd): publish_phase(a, 'leader')
+
     def test_idle_peer_wakes(self):
         self.assertTrue(self.a.prepare(self.config('beta'), TASK, 'beta', defer=False))
         config = self.config()

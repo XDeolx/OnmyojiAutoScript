@@ -63,6 +63,21 @@ class StabilityTest(unittest.TestCase):
         fake = SimpleNamespace(I_CAP_SUCCESS='success', I_BATTLE_SUCCESS='win', appear=lambda _: True)
         self.assertFalse(load('_handle_battle_fail_abandon', {'Timer': Timer})(fake))
 
+    def test_abandon_budget_survives_repeated_handler_calls(self):
+        clock = [0.0]
+        clicks = []
+        fake = SimpleNamespace(I_CAP_SUCCESS='success', I_BATTLE_SUCCESS='win',
+            I_BATTLE_FAIL_ABANDON='abandon', appear=lambda r: r == 'abandon',
+            appear_then_click=lambda *a, **k: clicks.append(1) or True,
+            screenshot=lambda: None)
+        fn = load('_handle_battle_fail_abandon', {'Timer': Timer, 'monotonic': lambda: clock[0]})
+        for t in range(20):
+            clock[0] = float(t)
+            self.assertTrue(fn(fake))
+        self.assertEqual(len(clicks), 3)
+        clock[0] = 31.0
+        with self.assertRaises(RuntimeError): fn(fake)
+
     def test_locked_room_does_not_click_prepare(self):
         fake = SimpleNamespace(_room_locked=True)
         fn = load('_prepare_click_ready', {'BattleContext': object, 'GeneralBattleConfig': object})
