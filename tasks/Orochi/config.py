@@ -66,6 +66,7 @@ class SwitchSoulConfig(BaseSwitchSoulConfig):
 
 
 class RealmRaidLinkConfig(ConfigBase):
+    team_finish_enable: bool = Field(default=False, title='组队任务结束后执行个人突破', description='队长、队员或野队模式达到本次局数或时间上限并正常结束后，调度一次个人突破任务，沿用其全部配置。中途不检查，突破后不续刷；邀请失败、队伍解散或等待超时提前退出不触发。独立于单人联动开关。')
     enable: bool = Field(default=False, title='检查突破票并调用个人突破', description='仅支持单人模式。中途达到票数门槛时执行个人突破；刷蛇正常结束后，只要票数满足个人突破的保留票数设置也会执行一次。')
     interval_count: int = Field(default=20, ge=0, title='每完成多少局检查', description='0 表示关闭按局数检查。')
     interval_minutes: int = Field(default=10, ge=0, title='检查间隔（分钟）', description='0 表示关闭按时间检查；到时在当前战斗结算后检查。两项都为 0 时仅结束后检查。')

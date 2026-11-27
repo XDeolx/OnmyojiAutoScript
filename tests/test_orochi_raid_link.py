@@ -12,7 +12,7 @@ class LinkTest(unittest.TestCase):
     def owner(self, resume=True, role='alone'):
         owner = RealmRaidLink()
         link = NS(enable=True, interval_count=20, interval_minutes=10, ticket_threshold=25,
-                  resume_after_raid=resume)
+                  resume_after_raid=resume, team_finish_enable=False)
         owner.config = NS(orochi=NS(orochi_config=NS(user_status=role), realm_raid_link=link),
                           realm_raid=NS(raid_config=NS(number_base=0),
                                         switch_soul_config=NS(enable=False, enable_switch_by_name=False)))
@@ -64,6 +64,32 @@ class LinkTest(unittest.TestCase):
         owner._raid_link_active = False
         self.assertFalse(owner._raid_check_due())
         self.assertFalse(self.call(owner, final=True))
+
+    def test_team_finish_schedules_separate_task_only(self):
+        for role in ['leader', 'member', 'wild']:
+            owner, runner = self.owner(role=role)
+            calls = []
+            owner.config.task_call = calls.append
+            owner.config.orochi.realm_raid_link.team_finish_enable = True
+            owner.config.orochi.realm_raid_link.enable = False
+            owner._orochi_team_completed = True
+            self.assertFalse(owner._raid_check_due())
+            self.assertFalse(self.call(owner, final=True))
+            owner._queue_team_realm_raid(True)
+            self.assertEqual(calls, ['RealmRaid'])
+            self.assertFalse(runner.completed)
+
+    def test_early_exit_failure_disabled_and_solo_do_not_queue(self):
+        for role, complete, success, enabled in [
+                ('member', False, True, True), ('leader', True, False, True),
+                ('wild', True, True, False), ('alone', True, True, True)]:
+            owner, _ = self.owner(role=role)
+            calls = []
+            owner.config.task_call = calls.append
+            owner.config.orochi.realm_raid_link.team_finish_enable = enabled
+            owner._orochi_team_completed = complete
+            owner._queue_team_realm_raid(success)
+            self.assertEqual(calls, [])
 
     def test_final_uses_remaining_tickets_without_restart(self):
         owner, _ = self.owner()

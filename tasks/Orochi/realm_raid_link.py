@@ -1,4 +1,4 @@
-"""Single-player raid detour; the parent retains its own battle counter."""
+"""Solo raid detours and a final-only raid after successful team completion."""
 from datetime import datetime
 import time
 
@@ -13,6 +13,16 @@ class RealmRaidLink:
             return False
         settings = self.config.orochi
         return settings.orochi_config.user_status == 'alone' and settings.realm_raid_link.enable
+
+    def _queue_team_realm_raid(self, success):
+        settings = self.config.orochi
+        if (success and getattr(self, '_raid_link_active', False)
+                and getattr(self, '_orochi_team_completed', False)
+                and settings.orochi_config.user_status in ('leader', 'member', 'wild')
+                and settings.realm_raid_link.team_finish_enable):
+            # Run as a separate scheduled task after Orochi has saved its completion.
+            self.config.task_call('RealmRaid')
+            logger.info('Orochi team task completed; personal realm raid scheduled')
 
     def _raid_check_due(self):
         if not self._raid_link_enabled():

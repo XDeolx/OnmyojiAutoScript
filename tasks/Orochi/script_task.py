@@ -77,6 +77,7 @@ class ScriptTask(RealmRaidLink, GeneralBattle, GeneralInvite, GeneralBuff, Gener
         self._raid_last_time = clock.monotonic()
         self._raid_link_stopped = False
         self._raid_link_active = True
+        self._orochi_team_completed = False
 
         config: Orochi = self.config.orochi
         if not self.is_in_battle(True):
@@ -116,6 +117,7 @@ class ScriptTask(RealmRaidLink, GeneralBattle, GeneralInvite, GeneralBuff, Gener
         else:
             self.set_next_run('Orochi', finish=False, success=False)
 
+        self._queue_team_realm_raid(success)
         raise TaskEnd
 
     def switch_orochi_souls(self):
@@ -171,10 +173,12 @@ class ScriptTask(RealmRaidLink, GeneralBattle, GeneralInvite, GeneralBuff, Gener
             self.screenshot()
             if self.current_count >= self.limit_count:
                 if self.is_in_room():
+                    self._orochi_team_completed = True
                     logger.info('Orochi count limit out')
                     break
             if datetime.now() - self.start_time >= self.limit_time:
                 if self.is_in_room():
+                    self._orochi_team_completed = True
                     logger.info('Orochi time limit out')
                     break
             # 如果没有进入房间那就不需要后面的邀请
@@ -231,9 +235,11 @@ class ScriptTask(RealmRaidLink, GeneralBattle, GeneralInvite, GeneralBuff, Gener
             if self.appear_then_click(self.I_PET_PRESENT, action=self.C_RANDOM_RIGHT, interval=1):
                 continue
             if self.current_count >= self.limit_count:
+                self._orochi_team_completed = True
                 logger.info('Orochi count limit out')
                 break
             if datetime.now() - self.start_time >= self.limit_time:
+                self._orochi_team_completed = True
                 logger.info('Orochi time limit out')
                 break
 
@@ -289,9 +295,11 @@ class ScriptTask(RealmRaidLink, GeneralBattle, GeneralInvite, GeneralBuff, Gener
             if not is_in_orochi():
                 continue
             if self.current_count >= self.limit_count:
+                self._orochi_team_completed = True
                 logger.info('Orochi count limit out')
                 break
             if datetime.now() - self.start_time >= self.limit_time:
+                self._orochi_team_completed = True
                 logger.info('Orochi time limit out')
                 break
             if self._raid_check_due():
@@ -346,11 +354,13 @@ class ScriptTask(RealmRaidLink, GeneralBattle, GeneralInvite, GeneralBuff, Gener
 
             if self.current_count >= self.limit_count:
                 if self.is_in_room():
+                    self._orochi_team_completed = True
                     logger.info('Orochi count limit out')
                     break
 
             if datetime.now() - self.start_time >= self.limit_time:
                 if self.is_in_room():
+                    self._orochi_team_completed = True
                     logger.info('Orochi time limit out')
                     break
 
