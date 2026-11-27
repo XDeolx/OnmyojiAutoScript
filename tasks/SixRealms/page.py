@@ -10,6 +10,56 @@ page_sr_prepare_exit = Page(SixRealmsAssets.I_MS_CHECK_EXIT_PREPARE, priority=88
 # 商店打开弹窗
 page_sr_open_store = Page(SixRealmsAssets.I_MS_CHECK_OPEN_STORE, priority=88)
 
+
+def handle_sr_confirm(task, interval: float = 0.7) -> bool:
+    """优先普通确认；确认识别失败且取消可见时才尝试备用确认。"""
+    if task.appear(GlobalGameAssets.I_UI_CONFIRM):
+        return task.appear_then_click(GlobalGameAssets.I_UI_CONFIRM, interval=interval)
+    if task.appear(GlobalGameAssets.I_UI_CANCEL):
+        return task.appear_then_click(SixRealmsAssets.I_SR_CONFIRM_BACKUP, interval=interval)
+    return False
+
+# Shared transient dialog: the short confirm button identifies the page.
+from module.logger import logger
+
+page_sr_confirm_tip = Page(
+    SixRealmsAssets.I_SR_SELECT_ENSURE_SHORT,
+    category="six_realms", priority=100,
+)
+
+
+def click_until_gone(task, rule, guard=None, interval=1):
+    from module.base.timer import Timer
+    from module.exception import GameStuckError
+    timer = Timer(6).start()
+    absent = clicks = 0
+    while not timer.reached():
+        task.screenshot()
+        if not task.appear(rule):
+            absent += 1
+            if absent >= 2:
+                return
+            continue
+        absent = 0
+        if guard is not None and not task.appear(guard):
+            raise GameStuckError('SixRealms confirmation page changed')
+        if clicks < 3 and task.appear_then_click(rule, interval=interval):
+            clicks += 1
+    raise GameStuckError('SixRealms confirmation did not settle')
+
+
+def handle_sr_confirm_tip(task) -> bool:
+    confirm = SixRealmsAssets.I_SR_SELECT_ENSURE_SHORT
+    unchecked = SixRealmsAssets.I_SR_NOT_TIP
+    if not task.appear(confirm):
+        return False
+    if task.appear(unchecked):
+        click_until_gone(task, unchecked, guard=confirm)
+    click_until_gone(task, confirm)
+    task.screenshot()
+    return True
+
+
 # ----------------月之海----------------
 def handle_enter_moon_sea(task) -> bool:
     """六道之门页面切换到月之海"""

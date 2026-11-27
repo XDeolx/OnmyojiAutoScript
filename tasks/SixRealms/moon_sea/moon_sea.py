@@ -1,3 +1,5 @@
+from tasks.GlobalGame.assets import GlobalGameAssets
+from tasks.SixRealms.page import handle_sr_confirm
 import time
 
 import random
@@ -38,7 +40,9 @@ class MoonSea(BaseMoonSea):
             pages.page_battle_prepare: self.run_on_ms_challenge,
             pages.page_battle: self.run_on_ms_challenge,
             pages.page_battle_result: self.run_on_ms_challenge,
-            pages.page_reward: lambda: self.click(pages.reward_random_click(), interval=1.2),
+            pages.page_reward: lambda: self.click(
+                pages.reward_random_click(), interval=1.2
+            ),
         }
 
     def run(self):
@@ -92,7 +96,7 @@ class MoonSea(BaseMoonSea):
     def run_on_ms_main(self):
         """月之海主界面 执行策略选岛屿"""
         if self.appear(self.I_BOSS_FIRE_PREPARE) and \
-                self.enter_battle(self.I_BOSS_FIRE, boss_unlock=self.I_BOSS_TEAM_UNLOCK, boss_lock=self.I_BOSS_TEAM_LOCK):
+                self.enter_battle(self.I_BOSS_FIRE, boss_unlock=self.I_BOSS_TEAM_UNLOCK):
             logger.info('Start boss battle')
             self.run_general_battle(battle_key='boss', exit_matcher=pages.page_moon_sea)
             raise TaskEnd
@@ -146,7 +150,7 @@ class MoonSea(BaseMoonSea):
                 self.click(pages.random_click(), interval=1.5)
                 imitated = True
                 continue
-            if self.appear_then_click(self.I_UI_CONFIRM, interval=1.5):
+            if handle_sr_confirm(self, interval=1.5):
                 imitated = True
                 continue
             if self.appear_then_click(self.I_MISTERY_IMITATE, interval=2.5):

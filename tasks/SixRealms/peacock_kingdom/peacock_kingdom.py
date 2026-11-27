@@ -35,7 +35,9 @@ class PeacockKingdom(BasePeacockKingdom):
             pages.page_battle_prepare: self.run_on_pk_challenge,
             pages.page_battle: self.run_on_pk_challenge,
             pages.page_battle_result: self.run_on_pk_challenge,
-            pages.page_reward: lambda: self.click(pages.reward_random_click(), interval=1.2),
+            pages.page_reward: lambda: self.click(
+                pages.reward_random_click(), interval=1.2
+            ),
         }
 
     def run(self):
@@ -88,7 +90,7 @@ class PeacockKingdom(BasePeacockKingdom):
     def run_on_pk_main(self):
         """孔雀国主界面 执行策略选岛屿"""
         if self.appear(self.I_PK_BOSS_PREPARE) and \
-                self.enter_battle(self.I_PK_BOSS_FIRE, boss_unlock=self.I_PK_BOSS_UNLOCK, boss_lock=self.I_PK_BOSS_LOCK):
+                self.enter_battle(self.I_PK_BOSS_FIRE, boss_unlock=self.I_PK_BOSS_UNLOCK):
             logger.info('Start boss battle')
             self.run_general_battle(battle_key='boss', exit_matcher=pages.page_peacock_kingdom)
             raise TaskEnd

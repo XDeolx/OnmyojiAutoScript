@@ -9,6 +9,22 @@ from tasks.Orochi.realm_raid_link import RealmRaidLink
 
 
 class LinkTest(unittest.TestCase):
+    def test_buff_returns_to_courtyard_before_opening(self):
+        owner = RealmRaidLink()
+        owner.config = NS(orochi=NS(orochi_config=NS(soul_buff_enable=True)))
+        events = []
+        owner.goto_page = lambda page: events.append(('page', page))
+        owner.open_buff = lambda: events.append('open')
+        owner.soul = lambda **kw: events.append(('soul', kw['is_open']))
+        owner.close_buff = lambda: events.append('close')
+        with patch.dict(sys.modules, {'tasks.GameUi.page': NS(page_main='main')}):
+            owner._set_link_soul_buff(True)
+        self.assertEqual(events, [('page', 'main'), 'open', ('soul', True), 'close'])
+        events.clear()
+        owner.config.orochi.orochi_config.soul_buff_enable = False
+        owner._set_link_soul_buff(True)
+        self.assertEqual(events, [])
+
     def owner(self, resume=True, role='alone'):
         owner = RealmRaidLink()
         link = NS(enable=True, interval_count=20, interval_minutes=10, ticket_threshold=25,

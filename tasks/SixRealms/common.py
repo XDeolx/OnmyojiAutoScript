@@ -1,3 +1,4 @@
+from tasks.GlobalGame.assets import GlobalGameAssets
 import random
 import re
 from module.atom.image import RuleImage
@@ -11,6 +12,17 @@ import tasks.SixRealms.page as pages
 
 
 class SixRealmsCommon(GameUi, SixRealmsAssets):
+
+    def _detect_current_page(self, *, skip_first_screenshot=True, categories=None):
+        self.maybe_screenshot(skip_first_screenshot)
+        pages.handle_sr_confirm_tip(self)
+        return super()._detect_current_page(skip_first_screenshot=True, categories=categories)
+
+    def close_unknown_pages(self, skip_first_screenshot=True):
+        self.maybe_screenshot(skip_first_screenshot)
+        if pages.handle_sr_confirm_tip(self):
+            return True
+        return super().close_unknown_pages(skip_first_screenshot=True)
 
     def get_skill_select(self, skill_rule_list: List[RuleImage]) -> RuleImage:
         """
@@ -62,30 +74,27 @@ class SixRealmsCommon(GameUi, SixRealmsAssets):
             self.screenshot()
             if self.get_current_page() == store_page:
                 return True
-            if self.appear_then_click(self.I_UI_CONFIRM):
+            # The summon entry remains visible underneath this modal. Never
+            # click it again while the summon dialog is present.
+            if self.appear(SixRealmsAssets.I_MS_CHECK_OPEN_STORE):
+                pages.handle_sr_confirm(self, interval=0.7)
+                continue
+            if pages.handle_sr_confirm(self, interval=0.7):
                 continue
             if self.appear_then_click(store_rule, interval=1.5):
                 continue
-        self.appear_then_click(self.I_UI_CANCEL)
+        self.appear_then_click(GlobalGameAssets.I_UI_CANCEL)
         return False
 
-    def enter_battle(self, fire_rule: RuleImage, boss_unlock: RuleImage = None, boss_lock: RuleImage = None,
-                     normal_unlock: RuleImage = None, normal_lock: RuleImage = None) -> bool:
-        """
-        进入战斗
-        :param fire_rule: 点击进入战斗的挑战规则
-        :param boss_unlock: boss战前的解锁
-        :param boss_lock: boss战前的锁定
-        :param normal_unlock: 普通怪战前的解锁
-        :param normal_lock: 普通怪战前的锁定
-        :return: 成功进入战斗True, 否则False
-        """
-        normal_unlock = normal_unlock if normal_unlock else self.I_BATTLE_TEAM_UNLOCK
-        normal_lock = normal_lock if normal_lock else self.I_BATTLE_TEAM_LOCK
-        if self.appear(normal_unlock):
-            self.ui_click(normal_unlock, normal_lock, interval=0.8)
-        if boss_unlock and self.appear(boss_unlock):
-            self.ui_click(boss_unlock, boss_lock, interval=0.8)
+    def enter_battle(self, fire_rule: RuleImage, boss_unlock: RuleImage = None,
+                     normal_unlock: RuleImage = None) -> bool:
+        """仅识别未锁定态，确认锁队后沿原流程进入战斗。"""
+        unlock = boss_unlock if boss_unlock is not None else normal_unlock
+        if unlock is None:
+            unlock = self.I_BATTLE_TEAM_UNLOCK
+        if not self.appear(fire_rule):
+            return False
+        pages.click_until_gone(self, unlock, guard=fire_rule, interval=0.8)
         self.device.stuck_record_clear()
         timeout_timer = Timer(12).start()
         while not timeout_timer.reached():
@@ -136,7 +145,7 @@ class SixRealmsCommon(GameUi, SixRealmsAssets):
         buy_cnt = 0
         while True:
             self.screenshot()
-            if self.appear_then_click(self.I_UI_CONFIRM, interval=0.7):
+            if pages.handle_sr_confirm(self, interval=0.7):
                 continue
             if not buy_interval_timer.reached():
                 continue

@@ -71,6 +71,9 @@ class RealmRaidLink:
 
     def _set_link_soul_buff(self, enabled):
         if self.config.orochi.orochi_config.soul_buff_enable:
+            from tasks.GameUi.page import page_main
+            # Soul preset switching leaves us in records, where no buff entry exists.
+            self.goto_page(page_main)
             self.open_buff()
             self.soul(is_open=enabled)
             self.close_buff()
