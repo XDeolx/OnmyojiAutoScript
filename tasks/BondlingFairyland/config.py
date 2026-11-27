@@ -108,9 +108,13 @@ class BattleConfig(GeneralBattleConfig):
     battle_hide_fields = dynamic_hide('lock_team_enable', 'preset_enable', 'preset_group', 'preset_team')
 
 
+class BondlingInviteConfig(InviteConfig):
+    cooperation_script: str = Field(default='', title='协同脚本', description='可选本地配置名，仅用于轮换队列1/轮换队列2配对。任一端启动契灵时唤醒另一端；双方脚本需保持运行、契灵任务启用。对方忙时等待，不打断其他任务；留空且未被配对时保持普通邀请。')
+
+
 class BondlingFairyland(ConfigBase):
     scheduler: Scheduler = Field(default_factory=Scheduler)
     bondling_config: BondlingConfig = Field(default_factory=BondlingConfig)
-    invite_config: InviteConfig = Field(default_factory=InviteConfig)
+    invite_config: BondlingInviteConfig = Field(default_factory=BondlingInviteConfig)
     bondling_switch_soul: BondlingSwitchSoul = Field(default_factory=BondlingSwitchSoul)
     battle_config: BattleConfig = Field(default_factory=BattleConfig)

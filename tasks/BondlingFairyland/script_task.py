@@ -191,6 +191,8 @@ class ScriptTask(GameUi, GeneralInvite, GeneralRoom, GeneralBattle, SwitchSoul, 
 
 
     def run(self):
+        from tasks.BondlingFairyland.cooperation import prepare_handoff
+        prepare_handoff(self)
         self._room_locked = False
         cong = self.config.bondling_fairyland
 

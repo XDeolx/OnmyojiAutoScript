@@ -2,6 +2,7 @@
 # @author runhey
 # github https://github.com/runhey
 import random
+import time as clock
 from time import sleep
 from datetime import time, datetime, timedelta
 from tasks.Component.GeneralBattle.config_general_battle import GeneralBattleConfig
@@ -19,9 +20,10 @@ from tasks.TrueOrochi.assets import TrueOrochiAssets
 from module.logger import logger
 from module.exception import TaskEnd, GamePageUnknownError
 from tasks.Orochi.page import page_orochi
+from tasks.Orochi.realm_raid_link import RealmRaidLink
 
 
-class ScriptTask(GeneralBattle, GeneralInvite, GeneralBuff, GeneralRoom, GameUi, SwitchSoul, OrochiAssets, TrueOrochiAssets):
+class ScriptTask(RealmRaidLink, GeneralBattle, GeneralInvite, GeneralBuff, GeneralRoom, GameUi, SwitchSoul, OrochiAssets, TrueOrochiAssets):
 
     def _orochi_battle_key(self) -> str:
         return f"orochi_{self.config.orochi.orochi_config.layer}"
@@ -71,6 +73,10 @@ class ScriptTask(GeneralBattle, GeneralInvite, GeneralBuff, GeneralRoom, GameUi,
         self.current_count = 0
         self.limit_count: int = limit_count
         self.limit_time: timedelta = timedelta(hours=limit_time.hour, minutes=limit_time.minute, seconds=limit_time.second)
+        self._raid_last_count = 0
+        self._raid_last_time = clock.monotonic()
+        self._raid_link_stopped = False
+        self._raid_link_active = True
 
         config: Orochi = self.config.orochi
         if not self.is_in_battle(True):
@@ -87,6 +93,9 @@ class ScriptTask(GeneralBattle, GeneralInvite, GeneralBuff, GeneralRoom, GameUi,
             case UserStatus.ALONE: self.run_alone()
             case UserStatus.WILD: success = self.run_wild()
             case _: logger.error('Unknown user status')
+
+        if success and not self._raid_link_stopped:
+            self._run_linked_realm_raid(final=True)
 
         # 御魂结束后检测是否出现真蛇
         if config.orochi_config.check_true_orochi_enable:
@@ -285,6 +294,10 @@ class ScriptTask(GeneralBattle, GeneralInvite, GeneralBuff, GeneralRoom, GameUi,
             if datetime.now() - self.start_time >= self.limit_time:
                 logger.info('Orochi time limit out')
                 break
+            if self._raid_check_due():
+                if self._run_linked_realm_raid():
+                    return
+                continue
             # 点击挑战
             while True:
                 self.screenshot()

@@ -65,10 +65,19 @@ class SwitchSoulConfig(BaseSwitchSoulConfig):
     thirteen_switch: str = Field(default='-1,-1', description='thirteen_switch_help')
 
 
+class RealmRaidLinkConfig(ConfigBase):
+    enable: bool = Field(default=False, title='检查突破票并调用个人突破', description='仅支持单人模式。中途达到票数门槛时执行个人突破；刷蛇正常结束后，只要票数满足个人突破的保留票数设置也会执行一次。')
+    interval_count: int = Field(default=20, ge=0, title='每完成多少局检查', description='0 表示关闭按局数检查。')
+    interval_minutes: int = Field(default=10, ge=0, title='检查间隔（分钟）', description='0 表示关闭按时间检查；到时在当前战斗结算后检查。两项都为 0 时仅结束后检查。')
+    ticket_threshold: int = Field(default=25, ge=1, le=30, title='中途触发突破票数')
+    resume_after_raid: bool = Field(default=False, title='突破后继续之前的八岐大蛇任务', description='仅支持单人模式。突破正常结束后继续本次剩余局数与刷蛇时间；不重新计算整轮次数。关闭则突破后结束本次刷蛇。')
+
+
 class Orochi(ConfigBase):
     scheduler: Scheduler = Field(default_factory=Scheduler)
     orochi_config: OrochiConfig = Field(default_factory=OrochiConfig)
     invite_config: InviteConfig = Field(default_factory=InviteConfig)
     general_battle_config: GeneralBattleConfig = Field(default_factory=GeneralBattleConfig)
     switch_soul: SwitchSoulConfig = Field(default_factory=SwitchSoulConfig)
+    realm_raid_link: RealmRaidLinkConfig = Field(default_factory=RealmRaidLinkConfig)
 

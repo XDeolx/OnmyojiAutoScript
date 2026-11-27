@@ -215,6 +215,13 @@ class Cooperation:
         for name, item in ((self.name, own), (peer, other)):
             if not item.get('scheduler', {}).get('enable', False):
                 raise ScriptError(f'协同任务未启用：{name}/{task}')
+        if task == 'BondlingFairyland':
+            a, b = (item.get('bondling_config', {}) for item in (own, other))
+            if ({a.get('user_status'), b.get('user_status')} != {'handoff1', 'handoff2'}
+                    or a.get('bondling_mode') not in ('只刷契灵(低级式盘)', '只刷契灵(中级式盘)')
+                    or a.get('bondling_mode') != b.get('bondling_mode')
+                    or a.get('bondling_stone_class') != b.get('bondling_stone_class')):
+                raise ScriptError('契灵协同须配对 handoff1/handoff2，契灵种类和战斗模式一致')
         if task == 'MetaDemon':
             from tasks.MetaDemon.config import AssistanceRole, MetaDemonMode
             pair = ((own, peer), (other, self.name))
@@ -282,9 +289,9 @@ class Cooperation:
     def wake_next(self, config):
         """Only called at a scheduler boundary, so an active task is never interrupted."""
         for task, source in self.requested():
-            if task not in ('MetaDemon', 'MetaDemonTicket'):
+            if task not in ('MetaDemon', 'MetaDemonTicket', 'BondlingFairyland'):
                 continue
-            if ((task in ('MetaDemon', 'MetaDemonTicket') and self.runner_task(source) != task)
+            if ((task in ('MetaDemon', 'MetaDemonTicket', 'BondlingFairyland') and self.runner_task(source) != task)
                     or (task == 'MetaDemonTicket' and not self.matches_meta_demon_tickets(source))):
                 self.ack(task)
                 continue
@@ -311,11 +318,11 @@ class Cooperation:
                     or (configured != source and sender_peer != self.name)):
                 self.ack(task)
                 continue
-            if task == 'MetaDemon':
+            if task in ('MetaDemon', 'BondlingFairyland'):
                 try:
                     self.validate(task, source)
                 except ScriptError as exc:
-                    logger.info(f'忽略超鬼王协同唤醒：{exc}')
+                    logger.info(f'忽略任务协同唤醒：{exc}')
                     self.ack(task)
                     continue
             else:
